@@ -1,9 +1,11 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -12,8 +14,9 @@ model User {
   name      String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  accounts  Account[]
-  syncJobs  SyncJob[]
+  accounts          Account[]
+  syncJobs          SyncJob[]
+  calendarMappings  CalendarMapping[]
 }
 
 model Account {
@@ -36,4 +39,31 @@ model SyncJob {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model EventMapping {
+  id             String   @id @default(uuid())
+  userId         String
+  googleEventId  String?
+  appleEventId   String?
+  lastSyncedAt   DateTime @default(now())
+  
+  @@unique([userId, googleEventId])
+  @@unique([userId, appleEventId])
+}
+
+model CalendarMapping {
+  id               String   @id @default(uuid())
+  userId           String
+  googleCalendarId String
+  appleCalendarUrl String
+  displayName      String
+  syncEnabled      Boolean  @default(true)
+  lastSyncedAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, googleCalendarId])
+  @@unique([userId, appleCalendarUrl])
 }
