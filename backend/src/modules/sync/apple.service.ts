@@ -134,11 +134,105 @@ export class AppleCalendarService {
       });
 
       const result = await parseStringPromise(response.data);
-      return result;
+      const events: any[] = [];
+
+      if (result.multistatus && result.multistatus.response) {
+        for (const resp of result.multistatus.response) {
+          try {
+            const propstat = resp.propstat?.[0];
+            const prop = propstat?.prop?.[0];
+            const calendarData = prop?.['c:calendar-data']?.[0] || prop?.['calendar-data']?.[0];
+
+            if (calendarData) {
+              let icsContent = '';
+              if (typeof calendarData === 'string') {
+                icsContent = calendarData;
+              } else if (typeof calendarData === 'object' && calendarData._) {
+                icsContent = calendarData._;
+              }
+
+              if (icsContent) {
+                const event = this.parseICS(icsContent);
+                if (event) {
+                  events.push(event);
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing individual event:', e);
+          }
+        }
+      }
+      return events;
     } catch (error) {
       console.error('Error fetching Apple events:', error);
       throw error;
     }
+  }
+
+  private parseICS(icsData: string) {
+    try {
+      // Very basic ICS parser
+      const lines = icsData.split(/\r\n|\n|\r/);
+      const event: any = {};
+      let inEvent = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.startsWith('BEGIN:VEVENT')) {
+          inEvent = true;
+          continue;
+        }
+        if (line.startsWith('END:VEVENT')) {
+          inEvent = false;
+          continue;
+        }
+
+        if (inEvent) {
+          if (line.startsWith('UID:')) event.id = line.substring(4);
+          if (line.startsWith('SUMMARY:')) event.summary = line.substring(8);
+          if (line.startsWith('DESCRIPTION:')) event.description = line.substring(12);
+
+          // Handle DTSTART and DTEND (simplified)
+          if (line.startsWith('DTSTART')) {
+            const parts = line.split(':');
+            event.start = this.parseICSDate(parts[parts.length - 1]);
+          }
+          if (line.startsWith('DTEND')) {
+            const parts = line.split(':');
+            event.end = this.parseICSDate(parts[parts.length - 1]);
+          }
+        }
+      }
+      return event.id ? event : null;
+    } catch (e) {
+      console.error('Failed to parse ICS', e);
+      return null;
+    }
+  }
+
+  private parseICSDate(dateStr: string): Date {
+    // 20230101T120000Z or 20230101
+    if (!dateStr) return new Date();
+
+    const year = parseInt(dateStr.substring(0, 4));
+    const month = parseInt(dateStr.substring(4, 6)) - 1;
+    const day = parseInt(dateStr.substring(6, 8));
+
+    if (dateStr.length === 8) {
+      return new Date(year, month, day);
+    }
+
+    const hour = parseInt(dateStr.substring(9, 11));
+    const minute = parseInt(dateStr.substring(11, 13));
+    const second = parseInt(dateStr.substring(13, 15));
+
+    // Assume UTC if Z is present, otherwise local (simplified)
+    if (dateStr.endsWith('Z')) {
+      return new Date(Date.UTC(year, month, day, hour, minute, second));
+    }
+
+    return new Date(year, month, day, hour, minute, second);
   }
 
   async createEvent(calendarUrl: string, eventData: any) {
@@ -261,8 +355,10 @@ END:VCALENDAR`;
 
   async createCalendar(name: string) {
     const homeUrl = await this.discoverCalendarUrl();
-    const calendarSlug = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    const newCalendarUrl = `${homeUrl}${calendarSlug}/`;
+    const calendarUuid = uuidv4().toUpperCase(); // iCloud uses uppercase UUIDs typically
+    const newCalendarUrl = `${homeUrl}${calendarUuid}/`;
+
+    console.log(`Creating new Apple calendar at: ${newCalendarUrl}`);
 
     try {
       await axios({
@@ -277,6 +373,9 @@ END:VCALENDAR`;
             <d:set>
               <d:prop>
                 <d:displayname>${name}</d:displayname>
+                <c:supported-calendar-component-set>
+                  <c:comp name="VEVENT"/>
+                </c:supported-calendar-component-set>
               </d:prop>
             </d:set>
           </c:mkcalendar>
