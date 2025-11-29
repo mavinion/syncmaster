@@ -61,6 +61,19 @@ export const setupSyncWorker = () => {
             return;
         }
 
+        const convertAppleAlarmToGoogle = (trigger: string) => {
+            if (!trigger) return undefined;
+            // Trigger format: -PT15M
+            const match = trigger.match(/-PT(\d+)M/);
+            if (match && match[1]) {
+                return {
+                    useDefault: false,
+                    overrides: [{ method: 'popup', minutes: parseInt(match[1]) }]
+                };
+            }
+            return undefined;
+        };
+
         // Helper for logging
         const logSync = async (level: string, message: string, details?: any) => {
             if (!userId) return;
@@ -221,6 +234,8 @@ export const setupSyncWorker = () => {
                                 const appleEventId = await appleService.createEvent(appleUrl, {
                                     summary: gEvent.summary || 'Untitled Event',
                                     description: gEvent.description,
+                                    location: gEvent.location,
+                                    reminders: gEvent.reminders,
                                     start: gEvent.start,
                                     end: gEvent.end
                                 });
@@ -243,11 +258,20 @@ export const setupSyncWorker = () => {
 
                                 // If Google event is newer than last sync
                                 if (googleUpdated > lastSynced) {
+                                    // Conflict Check: If Apple event is ALSO newer than last sync, and NEWER than Google event, skip this update.
+                                    const appleUpdated = appleEvent.lastModified ? new Date(appleEvent.lastModified) : null;
+                                    if (appleUpdated && appleUpdated > lastSynced && appleUpdated > googleUpdated) {
+                                        console.log(`Conflict: Apple event ${appleEvent.id} is newer than Google event ${gEvent.id}. Skipping Google -> Apple sync.`);
+                                        continue;
+                                    }
+
                                     console.log(`Updating Apple event ${appleEvent.id} from Google event ${gEvent.id}`);
                                     try {
                                         await appleService.updateEvent(appleUrl, appleEvent.id, {
                                             summary: gEvent.summary || 'Untitled Event',
                                             description: gEvent.description,
+                                            location: gEvent.location,
+                                            reminders: gEvent.reminders,
                                             start: gEvent.start,
                                             end: gEvent.end
                                         }, appleEvent.href);
@@ -294,6 +318,8 @@ export const setupSyncWorker = () => {
                                 const googleEvent = await googleService.createEvent(googleId, {
                                     summary: aEvent.summary || 'Untitled Event',
                                     description: aEvent.description,
+                                    location: aEvent.location,
+                                    reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
                                     start: aEvent.start ? { dateTime: aEvent.start.toISOString() } : undefined,
                                     end: aEvent.end ? { dateTime: aEvent.end.toISOString() } : undefined,
                                 });
@@ -320,10 +346,13 @@ export const setupSyncWorker = () => {
                                 // Note: Apple might not always provide LAST-MODIFIED, so we might need a fallback or just skip
                                 if (appleUpdated && appleUpdated > lastSynced) {
                                     console.log(`Updating Google event ${googleEvent.id} from Apple event ${aEvent.id}`);
+                                    const googleReminders = convertAppleAlarmToGoogle(aEvent.alarmTrigger);
                                     try {
                                         await googleService.updateEvent(googleId, googleEvent.id, {
                                             summary: aEvent.summary || 'Untitled Event',
                                             description: aEvent.description,
+                                            location: aEvent.location,
+                                            reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
                                             start: aEvent.start ? { dateTime: aEvent.start.toISOString() } : undefined,
                                             end: aEvent.end ? { dateTime: aEvent.end.toISOString() } : undefined,
                                         });

@@ -196,6 +196,7 @@ export class AppleCalendarService {
           if (line.startsWith('UID:')) event.id = line.substring(4);
           if (line.startsWith('SUMMARY:')) event.summary = line.substring(8);
           if (line.startsWith('DESCRIPTION:')) event.description = line.substring(12);
+          if (line.startsWith('LOCATION:')) event.location = line.substring(9);
           if (line.startsWith('LAST-MODIFIED:')) event.lastModified = this.parseICSDate(line.substring(14));
 
           // Handle DTSTART and DTEND (simplified)
@@ -206,6 +207,14 @@ export class AppleCalendarService {
           if (line.startsWith('DTEND')) {
             const parts = line.split(':');
             event.end = this.parseICSDate(parts[parts.length - 1]);
+          }
+
+          // Basic VALARM detection (just checking if one exists and getting trigger)
+          if (line.startsWith('BEGIN:VALARM')) {
+            event.hasAlarm = true;
+          }
+          if (event.hasAlarm && line.startsWith('TRIGGER:')) {
+            event.alarmTrigger = line.substring(8);
           }
         }
       }
@@ -252,6 +261,19 @@ export class AppleCalendarService {
       ? `DTEND:${formatToICS(new Date(eventData.end.dateTime).toISOString())}`
       : `DTEND;VALUE=DATE:${eventData.end.date.replace(/-/g, '')}`;
 
+    const location = eventData.location ? `LOCATION:${eventData.location}` : '';
+
+    let alarm = '';
+    if (eventData.reminders && eventData.reminders.overrides && eventData.reminders.overrides.length > 0) {
+      // Use the first override for simplicity
+      const minutes = eventData.reminders.overrides[0].minutes;
+      alarm = `BEGIN:VALARM
+TRIGGER:-PT${minutes}M
+ACTION:DISPLAY
+DESCRIPTION:Reminder
+END:VALARM`;
+    }
+
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//SyncMaster//EN
@@ -262,6 +284,8 @@ ${start}
 ${end}
 SUMMARY:${eventData.summary}
 DESCRIPTION:${eventData.description || ''}
+${location}
+${alarm}
 END:VEVENT
 END:VCALENDAR`;
 
@@ -293,6 +317,19 @@ END:VCALENDAR`;
       ? `DTEND:${formatToICS(new Date(eventData.end.dateTime).toISOString())}`
       : `DTEND;VALUE=DATE:${eventData.end.date.replace(/-/g, '')}`;
 
+    const location = eventData.location ? `LOCATION:${eventData.location}` : '';
+
+    let alarm = '';
+    if (eventData.reminders && eventData.reminders.overrides && eventData.reminders.overrides.length > 0) {
+      // Use the first override for simplicity
+      const minutes = eventData.reminders.overrides[0].minutes;
+      alarm = `BEGIN:VALARM
+TRIGGER:-PT${minutes}M
+ACTION:DISPLAY
+DESCRIPTION:Reminder
+END:VALARM`;
+    }
+
     // We must reuse the existing UID (eventId)
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -304,6 +341,8 @@ ${start}
 ${end}
 SUMMARY:${eventData.summary}
 DESCRIPTION:${eventData.description || ''}
+${location}
+${alarm}
 END:VEVENT
 END:VCALENDAR`;
 
