@@ -200,13 +200,25 @@ export const setupSyncWorker = () => {
 
                 try {
                     googleEvents = await googleService.listEvents(googleId, now);
-                } catch (e) {
+                } catch (e: any) {
+                    // Check for 404 Not Found or 410 Gone
+                    if (e.code === 404 || e.code === 410 || (e.response && (e.response.status === 404 || e.response.status === 410))) {
+                        await logSync('WARN', `Google calendar ${mapping.displayName} not found (deleted). Removing mapping.`);
+                        await prisma.calendarMapping.delete({ where: { id: mapping.id } });
+                        continue;
+                    }
                     await logSync('ERROR', `Failed to fetch Google events for ${mapping.displayName}`, e);
                 }
 
                 try {
                     appleEvents = await appleService.listEvents(appleUrl, now, thirtyDaysLater);
-                } catch (e) {
+                } catch (e: any) {
+                    // Check for 404 Not Found or 410 Gone
+                    if (e.response && (e.response.status === 404 || e.response.status === 410)) {
+                        await logSync('WARN', `Apple calendar ${mapping.displayName} not found (deleted). Removing mapping.`);
+                        await prisma.calendarMapping.delete({ where: { id: mapping.id } });
+                        continue;
+                    }
                     await logSync('ERROR', `Failed to fetch Apple events for ${mapping.displayName}`, e);
                 }
 
