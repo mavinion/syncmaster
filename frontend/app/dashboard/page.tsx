@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshCw, CheckCircle, AlertCircle, LogOut } from 'lucide-react';
 import axios from 'axios';
+import { CalendarSelector } from '@/components/CalendarSelector';
 
 function DashboardContent() {
     const searchParams = useSearchParams();
@@ -16,18 +17,37 @@ function DashboardContent() {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
+    const [appleConnected, setAppleConnected] = useState(false);
+
     useEffect(() => {
         const urlToken = searchParams.get('token');
         const storedToken = localStorage.getItem('auth_token');
+        let currentToken = null;
 
         if (urlToken) {
             localStorage.setItem('auth_token', urlToken);
             setToken(urlToken);
-            router.replace('/dashboard'); // Clean URL
+            currentToken = urlToken;
+            router.replace('/dashboard');
         } else if (storedToken) {
             setToken(storedToken);
+            currentToken = storedToken;
         } else {
             router.push('/');
+        }
+
+        // Fetch status if we have a token
+        if (currentToken) {
+            try {
+                const payload = JSON.parse(atob(currentToken.split('.')[1]));
+                axios.get(`http://localhost:3000/auth/status?userId=${payload.id}`)
+                    .then(res => {
+                        setAppleConnected(res.data.apple);
+                    })
+                    .catch(console.error);
+            } catch (e) {
+                console.error('Invalid token');
+            }
         }
     }, [searchParams, router]);
 
@@ -37,7 +57,6 @@ function DashboardContent() {
         setStatus('idle');
 
         try {
-            // Decode token to get userId (in real app, use a proper hook/context)
             const payload = JSON.parse(atob(token!.split('.')[1]));
 
             await axios.post('http://localhost:3000/auth/apple-credentials', {
@@ -47,6 +66,7 @@ function DashboardContent() {
             });
 
             setStatus('success');
+            setAppleConnected(true); // Update UI immediately
             setAppleId('');
             setAppPassword('');
         } catch (error) {
@@ -116,53 +136,88 @@ function DashboardContent() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <form onSubmit={handleAppleConnect} className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-zinc-700">Apple ID</label>
-                                    <input
-                                        type="email"
-                                        required
-                                        value={appleId}
-                                        onChange={(e) => setAppleId(e.target.value)}
-                                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="name@icloud.com"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-zinc-700">App-Specific Password</label>
-                                    <input
-                                        type="password"
-                                        required
-                                        value={appPassword}
-                                        onChange={(e) => setAppPassword(e.target.value)}
-                                        className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="xxxx-xxxx-xxxx-xxxx"
-                                    />
-                                    <p className="text-xs text-zinc-500">
-                                        Generate this at appleid.apple.com
+                            {appleConnected ? (
+                                <>
+                                    <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-md border border-green-100">
+                                        <CheckCircle className="w-5 h-5" />
+                                        <span className="font-medium">Connected</span>
+                                    </div>
+                                    <p className="mt-4 text-sm text-zinc-500">
+                                        Your Apple Calendar is connected and ready to sync.
                                     </p>
-                                </div>
-
-                                {status === 'success' && (
-                                    <div className="flex items-center gap-2 text-green-600 text-sm">
-                                        <CheckCircle className="w-4 h-4" />
-                                        Connected successfully!
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setAppleConnected(false)}
+                                        className="mt-4 w-full text-zinc-600"
+                                    >
+                                        Reconnect / Change Account
+                                    </Button>
+                                </>
+                            ) : (
+                                <form onSubmit={handleAppleConnect} className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-zinc-700">Apple ID</label>
+                                        <input
+                                            type="email"
+                                            required
+                                            value={appleId}
+                                            onChange={(e) => setAppleId(e.target.value)}
+                                            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="name@icloud.com"
+                                        />
                                     </div>
-                                )}
-
-                                {status === 'error' && (
-                                    <div className="flex items-center gap-2 text-red-600 text-sm">
-                                        <AlertCircle className="w-4 h-4" />
-                                        Failed to connect. Check credentials.
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-zinc-700">App-Specific Password</label>
+                                        <input
+                                            type="password"
+                                            required
+                                            value={appPassword}
+                                            onChange={(e) => setAppPassword(e.target.value)}
+                                            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="xxxx-xxxx-xxxx-xxxx"
+                                        />
+                                        <p className="text-xs text-zinc-500">
+                                            Generate this at appleid.apple.com
+                                        </p>
                                     </div>
-                                )}
 
-                                <Button type="submit" className="w-full" disabled={loading}>
-                                    {loading ? 'Connecting...' : 'Connect Apple Calendar'}
-                                </Button>
-                            </form>
+                                    {status === 'error' && (
+                                        <div className="flex items-center gap-2 text-red-600 text-sm">
+                                            <AlertCircle className="w-4 h-4" />
+                                            Failed to connect. Check credentials.
+                                        </div>
+                                    )}
+
+                                    <Button type="submit" className="w-full" disabled={loading}>
+                                        {loading ? 'Connecting...' : 'Connect Apple Calendar'}
+                                    </Button>
+                                </form>
+                            )}
                         </CardContent>
                     </Card>
+                </div>
+
+                {/* Calendar Selection */}
+                {token && (
+                    <CalendarSelector userId={JSON.parse(atob(token.split('.')[1])).id} />
+                )}
+
+                <div className="flex justify-center mt-8">
+                    <Button
+                        onClick={async () => {
+                            try {
+                                const payload = JSON.parse(atob(token!.split('.')[1]));
+                                await axios.post('http://localhost:3000/sync/trigger', { userId: payload.id });
+                                alert('Sync started! Check backend logs for details.');
+                            } catch (err) {
+                                console.error(err);
+                                alert('Failed to start sync');
+                            }
+                        }}
+                        className="bg-zinc-900 text-white hover:bg-zinc-800"
+                    >
+                        Sync Now
+                    </Button>
                 </div>
             </div>
         </div>
