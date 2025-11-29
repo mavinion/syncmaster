@@ -27,9 +27,24 @@ router.get('/list', async (req, res) => {
         let appleCalendars: any[] = [];
 
         if (googleAccount) {
+            console.log('Google Auth Check:', {
+                userId,
+                hasAccessToken: !!googleAccount.accessToken,
+                hasRefreshToken: !!googleAccount.refreshToken
+            });
             const googleService = new GoogleCalendarService(
                 googleAccount.accessToken!,
-                googleAccount.refreshToken!
+                googleAccount.refreshToken!,
+                async (tokens) => {
+                    console.log('Refreshing Google tokens for user', userId);
+                    await prisma.account.update({
+                        where: { id: googleAccount.id },
+                        data: {
+                            accessToken: tokens.access_token,
+                            refreshToken: tokens.refresh_token || googleAccount.refreshToken // Keep old refresh token if not provided
+                        }
+                    });
+                }
             );
             try {
                 googleCalendars = await googleService.listCalendars();
@@ -55,7 +70,7 @@ router.get('/list', async (req, res) => {
             where: { userId: String(userId) },
         });
 
-        res.json({
+        const response = {
             google: googleCalendars.map(c => ({
                 id: c.id,
                 summary: c.summary,
@@ -65,8 +80,17 @@ router.get('/list', async (req, res) => {
                 id: c.id,
                 summary: c.summary,
                 syncEnabled: mappings.some(m => m.appleCalendarUrl === c.id && m.syncEnabled)
-            }))
+            })),
+            autoSyncEnabled: (await prisma.user.findUnique({ where: { id: String(userId) } }))?.autoSyncEnabled || false
+        };
+
+        console.log(`Returning calendar list for user ${userId}:`, {
+            googleCount: response.google.length,
+            appleCount: response.apple.length,
+            autoSync: response.autoSyncEnabled
         });
+
+        res.json(response);
 
     } catch (error) {
         console.error(error);
@@ -115,14 +139,34 @@ router.post('/preferences', async (req, res) => {
             await prisma.calendarMapping.create({
                 data: {
                     userId,
-                    googleCalendarId: googleCalendarId || '', // Temporary empty string if missing
-                    appleCalendarUrl: appleCalendarUrl || '', // Temporary empty string if missing
+                    googleCalendarId: googleCalendarId || undefined,
+                    appleCalendarUrl: appleCalendarUrl || undefined,
                     displayName: displayName || 'Calendar',
                     syncEnabled: enabled
                 }
             });
         }
 
+        res.json({ success: true });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Update auto-sync preference
+router.post('/preferences/auto-sync', async (req, res) => {
+    const { userId, enabled } = req.body;
+
+    if (!userId || typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        await prisma.user.update({
+            where: { id: userId },
+            data: { autoSyncEnabled: enabled }
+        });
         res.json({ success: true });
     } catch (error) {
         console.error(error);
