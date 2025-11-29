@@ -12,11 +12,13 @@ interface Calendar {
 interface CalendarList {
     google: Calendar[];
     apple: Calendar[];
+    autoSyncEnabled: boolean;
 }
 
 export function CalendarSelector({ userId }: { userId: string }) {
     const [calendars, setCalendars] = useState<CalendarList | null>(null);
     const [loading, setLoading] = useState(true);
+    const [autoSync, setAutoSync] = useState(false);
 
     useEffect(() => {
         fetchCalendars();
@@ -25,7 +27,9 @@ export function CalendarSelector({ userId }: { userId: string }) {
     const fetchCalendars = async () => {
         try {
             const res = await axios.get(`http://localhost:3000/calendars/list?userId=${userId}`);
+            console.log('Fetched calendars:', res.data);
             setCalendars(res.data);
+            setAutoSync(res.data.autoSyncEnabled);
         } catch (error) {
             console.error('Failed to fetch calendars', error);
         } finally {
@@ -56,6 +60,20 @@ export function CalendarSelector({ userId }: { userId: string }) {
                 [otherProvider]: updatedOtherList
             };
         });
+    };
+
+    const handleAutoSyncToggle = async () => {
+        const newState = !autoSync;
+        setAutoSync(newState);
+        try {
+            await axios.post('http://localhost:3000/sync/preferences/auto-sync', {
+                userId,
+                enabled: newState
+            });
+        } catch (error) {
+            console.error('Failed to update auto-sync preference', error);
+            setAutoSync(!newState); // Revert on error
+        }
     };
 
     const handleSave = async () => {
@@ -103,6 +121,33 @@ export function CalendarSelector({ userId }: { userId: string }) {
 
     return (
         <div className="space-y-6 mt-8">
+            {/* Auto Sync Toggle */}
+            <Card>
+                <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <h3 className="font-medium text-zinc-900">Automatic Synchronization</h3>
+                            <p className="text-sm text-zinc-500">Automatically sync calendars every 15 minutes</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-zinc-700">
+                                {autoSync ? 'On' : 'Off'}
+                            </span>
+                            <button
+                                onClick={handleAutoSyncToggle}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${autoSync ? 'bg-blue-600' : 'bg-zinc-200'
+                                    }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoSync ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
+                                />
+                            </button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             <div className="grid md:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader>
@@ -112,17 +157,21 @@ export function CalendarSelector({ userId }: { userId: string }) {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {calendars.google.map(cal => (
-                            <div key={cal.id} className="flex items-center justify-between p-2 border rounded hover:bg-zinc-50">
-                                <span className="font-medium">{cal.summary}</span>
-                                <input
-                                    type="checkbox"
-                                    checked={cal.syncEnabled}
-                                    onChange={() => toggleCalendar('google', cal)}
-                                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                />
-                            </div>
-                        ))}
+                        {calendars.google.length === 0 ? (
+                            <p className="text-sm text-zinc-500 italic">No calendars found.</p>
+                        ) : (
+                            calendars.google.map(cal => (
+                                <div key={cal.id} className="flex items-center justify-between p-2 border rounded hover:bg-zinc-50">
+                                    <span className="font-medium">{cal.summary}</span>
+                                    <input
+                                        type="checkbox"
+                                        checked={cal.syncEnabled}
+                                        onChange={() => toggleCalendar('google', cal)}
+                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                </div>
+                            ))
+                        )}
                     </CardContent>
                 </Card>
 
@@ -134,17 +183,21 @@ export function CalendarSelector({ userId }: { userId: string }) {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {calendars.apple.map(cal => (
-                            <div key={cal.id} className="flex items-center justify-between p-2 border rounded hover:bg-zinc-50">
-                                <span className="font-medium">{cal.summary}</span>
-                                <input
-                                    type="checkbox"
-                                    checked={cal.syncEnabled}
-                                    onChange={() => toggleCalendar('apple', cal)}
-                                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                />
-                            </div>
-                        ))}
+                        {calendars.apple.length === 0 ? (
+                            <p className="text-sm text-zinc-500 italic">No calendars found.</p>
+                        ) : (
+                            calendars.apple.map(cal => (
+                                <div key={cal.id} className="flex items-center justify-between p-2 border rounded hover:bg-zinc-50">
+                                    <span className="font-medium">{cal.summary}</span>
+                                    <input
+                                        type="checkbox"
+                                        checked={cal.syncEnabled}
+                                        onChange={() => toggleCalendar('apple', cal)}
+                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                </div>
+                            ))
+                        )}
                     </CardContent>
                 </Card>
             </div>

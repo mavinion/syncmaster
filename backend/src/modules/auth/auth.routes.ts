@@ -8,7 +8,11 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Google OAuth
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar'] }));
+router.get('/google', passport.authenticate('google', {
+    scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar'],
+    accessType: 'offline',
+    prompt: 'consent'
+}));
 
 router.get(
     '/google/callback',

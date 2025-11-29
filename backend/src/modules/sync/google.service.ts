@@ -4,7 +4,7 @@ import { OAuth2Client } from 'google-auth-library';
 export class GoogleCalendarService {
     private oauth2Client: OAuth2Client;
 
-    constructor(accessToken: string, refreshToken: string) {
+    constructor(accessToken: string, refreshToken: string, onTokenUpdate?: (tokens: any) => void) {
         this.oauth2Client = new google.auth.OAuth2(
             process.env.GOOGLE_CLIENT_ID,
             process.env.GOOGLE_CLIENT_SECRET,
@@ -14,6 +14,12 @@ export class GoogleCalendarService {
         this.oauth2Client.setCredentials({
             access_token: accessToken,
             refresh_token: refreshToken,
+        });
+
+        this.oauth2Client.on('tokens', (tokens) => {
+            if (onTokenUpdate) {
+                onTokenUpdate(tokens);
+            }
         });
     }
 
