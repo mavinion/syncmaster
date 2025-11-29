@@ -154,6 +154,10 @@ export class AppleCalendarService {
               if (icsContent) {
                 const event = this.parseICS(icsContent);
                 if (event) {
+                  // Capture the href (URL) of the event
+                  if (resp.href && resp.href[0]) {
+                    event.href = resp.href[0];
+                  }
                   events.push(event);
                 }
               }
@@ -192,6 +196,7 @@ export class AppleCalendarService {
           if (line.startsWith('UID:')) event.id = line.substring(4);
           if (line.startsWith('SUMMARY:')) event.summary = line.substring(8);
           if (line.startsWith('DESCRIPTION:')) event.description = line.substring(12);
+          if (line.startsWith('LAST-MODIFIED:')) event.lastModified = this.parseICSDate(line.substring(14));
 
           // Handle DTSTART and DTEND (simplified)
           if (line.startsWith('DTSTART')) {
@@ -273,6 +278,57 @@ END:VCALENDAR`;
       return uuid;
     } catch (error) {
       console.error('Error creating Apple event:', error);
+      throw error;
+    }
+  }
+
+  async updateEvent(calendarUrl: string, eventId: string, eventData: any, eventHref?: string) {
+    const formatToICS = (isoString: string) => isoString.replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+    const start = eventData.start.dateTime
+      ? `DTSTART:${formatToICS(new Date(eventData.start.dateTime).toISOString())}`
+      : `DTSTART;VALUE=DATE:${eventData.start.date.replace(/-/g, '')}`;
+
+    const end = eventData.end.dateTime
+      ? `DTEND:${formatToICS(new Date(eventData.end.dateTime).toISOString())}`
+      : `DTEND;VALUE=DATE:${eventData.end.date.replace(/-/g, '')}`;
+
+    // We must reuse the existing UID (eventId)
+    const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//SyncMaster//EN
+BEGIN:VEVENT
+UID:${eventId}
+DTSTAMP:${formatToICS(new Date().toISOString())}
+${start}
+${end}
+SUMMARY:${eventData.summary}
+DESCRIPTION:${eventData.description || ''}
+END:VEVENT
+END:VCALENDAR`;
+
+    try {
+      // Use provided href if available, otherwise fallback to constructing it
+      let targetUrl = '';
+      if (eventHref) {
+        // Ensure it's a full URL
+        targetUrl = eventHref.startsWith('http') ? eventHref : new URL(eventHref, this.baseUrl).toString();
+      } else {
+        targetUrl = `${calendarUrl}${eventId}.ics`;
+      }
+
+      await axios({
+        method: 'PUT',
+        url: targetUrl,
+        headers: {
+          'Authorization': this.authHeader,
+          'Content-Type': 'text/calendar; charset=utf-8',
+        },
+        data: icsContent,
+      });
+      return eventId;
+    } catch (error) {
+      console.error('Error updating Apple event:', error);
       throw error;
     }
   }

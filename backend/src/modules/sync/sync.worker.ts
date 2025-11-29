@@ -233,6 +233,35 @@ export const setupSyncWorker = () => {
                                 console.error(`Failed to sync Google event ${gEvent.id} to Apple:`, err);
                             }
                         }
+                    } else {
+                        // Check for updates (Google -> Apple)
+                        if (existingMapping) {
+                            const appleEvent = appleEvents.find(e => e.id === existingMapping.appleEventId);
+                            if (appleEvent) {
+                                const googleUpdated = new Date(gEvent.updated);
+                                const lastSynced = new Date(existingMapping.lastSyncedAt);
+
+                                // If Google event is newer than last sync
+                                if (googleUpdated > lastSynced) {
+                                    console.log(`Updating Apple event ${appleEvent.id} from Google event ${gEvent.id}`);
+                                    try {
+                                        await appleService.updateEvent(appleUrl, appleEvent.id, {
+                                            summary: gEvent.summary || 'Untitled Event',
+                                            description: gEvent.description,
+                                            start: gEvent.start,
+                                            end: gEvent.end
+                                        }, appleEvent.href);
+                                        await prisma.eventMapping.update({
+                                            where: { id: existingMapping.id },
+                                            data: { lastSyncedAt: new Date() }
+                                        });
+                                        totalSyncedToApple++;
+                                    } catch (err) {
+                                        console.error(`Failed to update Apple event ${appleEvent.id}:`, err);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -277,6 +306,36 @@ export const setupSyncWorker = () => {
                                 }
                             } catch (err) {
                                 console.error(`Failed to sync Apple event ${aEvent.id} to Google:`, err);
+                            }
+                        }
+                    } else {
+                        // Check for updates (Apple -> Google)
+                        if (existingMapping) {
+                            const googleEvent = googleEvents.find(e => e.id === existingMapping.googleEventId);
+                            if (googleEvent) {
+                                const appleUpdated = aEvent.lastModified ? new Date(aEvent.lastModified) : null;
+                                const lastSynced = new Date(existingMapping.lastSyncedAt);
+
+                                // If Apple event is newer than last sync
+                                // Note: Apple might not always provide LAST-MODIFIED, so we might need a fallback or just skip
+                                if (appleUpdated && appleUpdated > lastSynced) {
+                                    console.log(`Updating Google event ${googleEvent.id} from Apple event ${aEvent.id}`);
+                                    try {
+                                        await googleService.updateEvent(googleId, googleEvent.id, {
+                                            summary: aEvent.summary || 'Untitled Event',
+                                            description: aEvent.description,
+                                            start: aEvent.start ? { dateTime: aEvent.start.toISOString() } : undefined,
+                                            end: aEvent.end ? { dateTime: aEvent.end.toISOString() } : undefined,
+                                        });
+                                        await prisma.eventMapping.update({
+                                            where: { id: existingMapping.id },
+                                            data: { lastSyncedAt: new Date() }
+                                        });
+                                        totalSyncedToGoogle++;
+                                    } catch (err) {
+                                        console.error(`Failed to update Google event ${googleEvent.id}:`, err);
+                                    }
+                                }
                             }
                         }
                     }

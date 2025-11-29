@@ -57,6 +57,22 @@ export class GoogleCalendarService {
         }
     }
 
+    async updateEvent(calendarId: string, eventId: string, event: any) {
+        const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+
+        try {
+            const response = await calendar.events.update({
+                calendarId,
+                eventId,
+                requestBody: event,
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error updating Google event:', error);
+            throw error;
+        }
+    }
+
     async listCalendars() {
         const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
         try {
