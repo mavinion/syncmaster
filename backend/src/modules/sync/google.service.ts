@@ -31,8 +31,7 @@ export class GoogleCalendarService {
                 calendarId,
                 timeMin: timeMin ? timeMin.toISOString() : new Date().toISOString(),
                 maxResults: 2500,
-                singleEvents: true,
-                orderBy: 'startTime',
+                singleEvents: false,
             });
 
             return response.data.items || [];

@@ -231,17 +231,18 @@ export const setupSyncWorker = () => {
                             });
                         } else {
                             try {
-                                const appleEventId = await appleService.createEvent(appleUrl, {
+                                const newAppleId = await appleService.createEvent(appleUrl, {
                                     summary: gEvent.summary || 'Untitled Event',
                                     description: gEvent.description,
-                                    location: gEvent.location,
-                                    reminders: gEvent.reminders,
                                     start: gEvent.start,
-                                    end: gEvent.end
+                                    end: gEvent.end,
+                                    location: gEvent.location,
+                                    recurrence: gEvent.recurrence, // Pass recurrence array
+                                    reminders: gEvent.reminders
                                 });
 
                                 await prisma.eventMapping.create({
-                                    data: { userId, googleEventId: gEvent.id, appleEventId, lastSyncedAt: new Date() },
+                                    data: { userId, googleEventId: gEvent.id, appleEventId: newAppleId, lastSyncedAt: new Date() },
                                 });
                                 totalSyncedToApple++;
                             } catch (err) {
@@ -270,11 +271,12 @@ export const setupSyncWorker = () => {
                                         await appleService.updateEvent(appleUrl, appleEvent.id, {
                                             summary: gEvent.summary || 'Untitled Event',
                                             description: gEvent.description,
-                                            location: gEvent.location,
-                                            reminders: gEvent.reminders,
                                             start: gEvent.start,
-                                            end: gEvent.end
-                                        }, appleEvent.href);
+                                            end: gEvent.end,
+                                            location: gEvent.location,
+                                            recurrence: gEvent.recurrence, // Pass recurrence array
+                                            reminders: gEvent.reminders
+                                        }, appleEvent.href); // Pass the href here
                                         await prisma.eventMapping.update({
                                             where: { id: existingMapping.id },
                                             data: { lastSyncedAt: new Date() }

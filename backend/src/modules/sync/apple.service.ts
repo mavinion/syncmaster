@@ -275,6 +275,16 @@ DESCRIPTION:Reminder
 END:VALARM`;
     }
 
+    let recurrenceRule = '';
+    if (eventData.recurrence && eventData.recurrence.length > 0) {
+      // Google sends recurrence as an array of strings, e.g. ["RRULE:FREQ=WEEKLY;BYDAY=MO"]
+      // We take the first one that starts with RRULE
+      const rrule = eventData.recurrence.find((r: string) => r.startsWith('RRULE:'));
+      if (rrule) {
+        recurrenceRule = rrule;
+      }
+    }
+
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//SyncMaster//EN
@@ -286,6 +296,7 @@ ${end}
 SUMMARY:${eventData.summary}
 DESCRIPTION:${eventData.description || ''}
 ${location}
+${recurrenceRule}
 ${alarm}
 END:VEVENT
 END:VCALENDAR`;
@@ -331,6 +342,15 @@ DESCRIPTION:Reminder
 END:VALARM`;
     }
 
+    let recurrenceRule = '';
+    if (eventData.recurrence && eventData.recurrence.length > 0) {
+      // Google sends recurrence as an array of strings
+      const rrule = eventData.recurrence.find((r: string) => r.startsWith('RRULE:'));
+      if (rrule) {
+        recurrenceRule = rrule;
+      }
+    }
+
     // We must reuse the existing UID (eventId)
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -343,6 +363,7 @@ ${end}
 SUMMARY:${eventData.summary}
 DESCRIPTION:${eventData.description || ''}
 ${location}
+${recurrenceRule}
 ${alarm}
 END:VEVENT
 END:VCALENDAR`;
