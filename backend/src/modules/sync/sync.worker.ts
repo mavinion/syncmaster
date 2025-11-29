@@ -290,7 +290,10 @@ export const setupSyncWorker = () => {
                 }
 
                 // 7. Sync Apple -> Google
-                for (const aEvent of appleEvents) {
+                // Deduplicate Apple events to prevent processing the same event twice
+                const uniqueAppleEvents = Array.from(new Map(appleEvents.map(e => [e.id, e])).values());
+
+                for (const aEvent of uniqueAppleEvents) {
                     if (!aEvent.id) continue;
 
                     const existingMapping = await prisma.eventMapping.findUnique({
@@ -315,18 +318,20 @@ export const setupSyncWorker = () => {
                             }
                         } else {
                             try {
-                                const googleEvent = await googleService.createEvent(googleId, {
+                                const googlePayload = {
                                     summary: aEvent.summary || 'Untitled Event',
                                     description: aEvent.description,
                                     location: aEvent.location,
+                                    recurrence: aEvent.rrule ? [aEvent.rrule] : undefined,
                                     reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
-                                    start: aEvent.start ? { dateTime: aEvent.start.toISOString() } : undefined,
-                                    end: aEvent.end ? { dateTime: aEvent.end.toISOString() } : undefined,
-                                });
+                                    start: aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined,
+                                    end: aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined,
+                                };
+                                const newGoogleEvent = await googleService.createEvent(googleId, googlePayload);
 
-                                if (googleEvent.id) {
+                                if (newGoogleEvent.id) {
                                     await prisma.eventMapping.create({
-                                        data: { userId, googleEventId: googleEvent.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
+                                        data: { userId, googleEventId: newGoogleEvent.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
                                     });
                                     totalSyncedToGoogle++;
                                 }
@@ -346,16 +351,17 @@ export const setupSyncWorker = () => {
                                 // Note: Apple might not always provide LAST-MODIFIED, so we might need a fallback or just skip
                                 if (appleUpdated && appleUpdated > lastSynced) {
                                     console.log(`Updating Google event ${googleEvent.id} from Apple event ${aEvent.id}`);
-                                    const googleReminders = convertAppleAlarmToGoogle(aEvent.alarmTrigger);
                                     try {
-                                        await googleService.updateEvent(googleId, googleEvent.id, {
+                                        const googlePayload = {
                                             summary: aEvent.summary || 'Untitled Event',
                                             description: aEvent.description,
                                             location: aEvent.location,
+                                            recurrence: aEvent.rrule ? [aEvent.rrule] : undefined,
                                             reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
-                                            start: aEvent.start ? { dateTime: aEvent.start.toISOString() } : undefined,
-                                            end: aEvent.end ? { dateTime: aEvent.end.toISOString() } : undefined,
-                                        });
+                                            start: aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined,
+                                            end: aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined,
+                                        };
+                                        await googleService.updateEvent(googleId, googleEvent.id, googlePayload);
                                         await prisma.eventMapping.update({
                                             where: { id: existingMapping.id },
                                             data: { lastSyncedAt: new Date() }

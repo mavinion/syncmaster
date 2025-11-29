@@ -197,6 +197,7 @@ export class AppleCalendarService {
           if (line.startsWith('SUMMARY:')) event.summary = line.substring(8);
           if (line.startsWith('DESCRIPTION:')) event.description = line.substring(12);
           if (line.startsWith('LOCATION:')) event.location = line.substring(9);
+          if (line.startsWith('RRULE:')) event.rrule = line;
           if (line.startsWith('LAST-MODIFIED:')) event.lastModified = this.parseICSDate(line.substring(14));
 
           // Handle DTSTART and DTEND (simplified)
