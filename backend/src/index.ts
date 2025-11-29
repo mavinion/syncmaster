@@ -33,6 +33,9 @@ app.use('/sync', syncRoutes);
 app.use('/calendars', calendarRoutes);
 app.use('/sync/logs', logsRouter);
 
+import adminRoutes from './routes/admin.routes';
+app.use('/admin', adminRoutes);
+
 app.get('/', (req, res) => {
     res.send('SyncMaster API is running');
 });

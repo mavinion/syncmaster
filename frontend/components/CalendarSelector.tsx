@@ -66,7 +66,7 @@ export function CalendarSelector({ userId }: { userId: string }) {
         const newState = !autoSync;
         setAutoSync(newState);
         try {
-            await axios.post('http://localhost:3000/sync/preferences/auto-sync', {
+            await axios.post('http://localhost:3000/calendars/preferences/auto-sync', {
                 userId,
                 enabled: newState
             });

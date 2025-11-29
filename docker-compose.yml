@@ -41,6 +41,8 @@ services:
       - "3001:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - BACKEND_URL=http://backend:3000
+      - ADMIN_PASSWORD=Bk23071982$
     depends_on:
       - backend
 
