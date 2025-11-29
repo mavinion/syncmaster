@@ -4,7 +4,7 @@ import passport from 'passport';
 import { setupGoogleStrategy } from './modules/auth/google.strategy';
 import authRoutes from './modules/auth/auth.routes';
 import syncRoutes from './modules/sync/sync.routes';
-import { setupSyncWorker } from './modules/sync/sync.worker';
+import { setupSyncWorker, setupScheduler } from './modules/sync/sync.worker';
 
 import cors from 'cors';
 
@@ -22,12 +22,16 @@ app.use(passport.initialize());
 
 setupGoogleStrategy();
 setupSyncWorker();
+setupScheduler();
 
 import calendarRoutes from './modules/sync/calendars.routes';
 
 app.use('/auth', authRoutes);
+import logsRouter from './modules/sync/logs.routes';
+
 app.use('/sync', syncRoutes);
 app.use('/calendars', calendarRoutes);
+app.use('/sync/logs', logsRouter);
 
 app.get('/', (req, res) => {
     res.send('SyncMaster API is running');

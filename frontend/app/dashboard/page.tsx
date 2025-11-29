@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshCw, CheckCircle, AlertCircle, LogOut } from 'lucide-react';
 import axios from 'axios';
-import { CalendarSelector } from '@/components/CalendarSelector';
+import { SyncLogViewer } from '@/components/SyncLogViewer';
+import { CalendarSelector } from '@/components/CalendarSelector'; // Assuming CalendarSelector is also a component
+
+// ... (existing imports)
 
 function DashboardContent() {
     const searchParams = useSearchParams();
@@ -199,7 +202,10 @@ function DashboardContent() {
 
                 {/* Calendar Selection */}
                 {token && (
-                    <CalendarSelector userId={JSON.parse(atob(token.split('.')[1])).id} />
+                    <>
+                        <CalendarSelector userId={JSON.parse(atob(token.split('.')[1])).id} />
+                        <SyncLogViewer userId={JSON.parse(atob(token.split('.')[1])).id} />
+                    </>
                 )}
 
                 <div className="flex justify-center mt-8">
