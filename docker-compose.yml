@@ -21,25 +21,28 @@ services:
     volumes:
       - redis_data:/data
 
-  # Backend and Frontend services will be uncommented once Dockerfiles are created
-  # backend:
-  #   build: ./backend
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-syncmaster}
-  #     - REDIS_HOST=redis
-  #     - REDIS_PORT=6379
-  #   depends_on:
-  #     - postgres
-  #     - redis
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-syncmaster}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
 
-  # frontend:
-  #   build: ./frontend
-  #   ports:
-  #     - "3001:3000"
-  #   depends_on:
-  #     - backend
+  frontend:
+    build: ./frontend
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
