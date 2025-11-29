@@ -33,7 +33,6 @@ A cloud-based, "set it and forget it" service that performs **true bi-directiona
 *   **Mixed-Ecosystem Households:** Families sharing events across Android/Google and iOS/Apple devices.
 *   **Professionals:** Using Mac/iPhone for personal productivity but forced to use Google Calendar for work.
 
-
 ## 6. Technical Architecture High-Level
 *   **Backend:** Node.js/TypeScript or Go for high-concurrency handling of sync jobs.
 *   **Database:** PostgreSQL for user data and sync mapping (storing IDs of linked events).

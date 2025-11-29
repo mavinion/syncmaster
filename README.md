@@ -15,21 +15,62 @@ SyncMaster is a private SaaS for bi-directional synchronization between Google C
 *   Docker & Docker Compose
 *   Node.js (v18+)
 
-### Setup
+### Setup (Option 1: Full Docker - Recommended)
 
-1.  **Start Infrastructure:**
+This will run the entire stack (Database, Redis, Backend, Frontend) in containers.
+
+1.  **Install Docker Desktop:**
+    [Download for Mac](https://docs.docker.com/desktop/install/mac-install/)
+
+2.  **Configure Environment:**
+    Create a `.env` file in the root directory (or rely on `docker-compose.yml` defaults for dev).
+    *Note: You still need to set Google/Apple credentials in `backend/.env` or pass them as env vars.*
+
+3.  **Start App:**
     ```bash
-    docker-compose up -d
+    docker-compose up --build -d
     ```
 
-2.  **Backend:**
+4.  **Access:**
+    *   Frontend: `http://localhost:3001`
+    *   Backend: `http://localhost:3000`
+
+### Setup (Option 2: Native / Homebrew)
+*Use this if you cannot install Docker Desktop.*
+
+1.  **Install Services:**
+    ```bash
+    brew install postgresql redis
+    ```
+
+2.  **Start Services:**
+    ```bash
+    brew services start postgresql
+    brew services start redis
+    ```
+
+3.  **Create Database:**
+    ```bash
+    createdb syncmaster
+    ```
+
+4.  **Update .env:**
+    Ensure your `backend/.env` points to localhost:
+    ```
+    DATABASE_URL="postgresql://$(whoami):@localhost:5432/syncmaster"
+    REDIS_HOST=localhost
+    REDIS_PORT=6379
+    ```
+
+5.  **Run Backend:**
     ```bash
     cd backend
     npm install
+    npx prisma migrate dev --name init
     npm run dev
     ```
 
-3.  **Frontend:**
+6.  **Run Frontend:**
     ```bash
     cd frontend
     npm install
