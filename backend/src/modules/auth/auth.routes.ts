@@ -66,4 +66,29 @@ router.post('/apple-credentials', async (req, res) => {
     }
 });
 
+// Get Account Status
+router.get('/status', async (req, res) => {
+    const { userId } = req.query;
+
+    if (!userId) {
+        return res.status(400).json({ error: 'Missing userId' });
+    }
+
+    try {
+        const accounts = await prisma.account.findMany({
+            where: { userId: String(userId) },
+        });
+
+        const status = {
+            google: accounts.some(a => a.provider === 'google'),
+            apple: accounts.some(a => a.provider === 'apple'),
+        };
+
+        res.json(status);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 export default router;

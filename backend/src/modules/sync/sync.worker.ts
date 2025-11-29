@@ -53,12 +53,50 @@ export const setupSyncWorker = () => {
             const googleEvents = await googleService.listEvents('primary', now);
             console.log(`Fetched ${googleEvents.length} Google events`);
 
-            // Apple fetch would go here (requires valid calendar URL discovery first)
-            // const appleEvents = await appleService.listEvents(appleCalendarUrl, now, thirtyDaysLater);
+            // Placeholder for Apple Calendar URL - In real app, we need to discover this
+            // For now, we'll assume a standard iCloud structure or require user input
+            // This is a critical TODO: Implement CalDAV Discovery
+            const appleCalendarUrl = await appleService.discoverCalendarUrl();
+            console.log(`Discovered Apple Calendar URL: ${appleCalendarUrl}`);
 
-            // 4. Sync Logic (Placeholder)
-            // Compare events, check mapping table, create/update/delete
-            console.log('Sync logic execution placeholder');
+            // 4. Sync Logic: Google -> Apple (One-way MVP)
+            for (const gEvent of googleEvents) {
+                if (!gEvent.id) continue;
+
+                // Check if already mapped
+                const mapping = await prisma.eventMapping.findUnique({
+                    where: {
+                        userId_googleEventId: {
+                            userId,
+                            googleEventId: gEvent.id,
+                        },
+                    },
+                });
+
+                if (!mapping) {
+                    console.log(`Syncing new Google event ${gEvent.summary} to Apple`);
+                    try {
+                        // Create in Apple
+                        const appleEventId = await appleService.createEvent(appleCalendarUrl, gEvent);
+
+                        // Save mapping
+                        await prisma.eventMapping.create({
+                            data: {
+                                userId,
+                                googleEventId: gEvent.id,
+                                appleEventId,
+                                lastSyncedAt: new Date(),
+                            },
+                        });
+                        console.log(`Synced Google Event ${gEvent.id} -> Apple Event ${appleEventId}`);
+                    } catch (err) {
+                        console.error(`Failed to sync event ${gEvent.summary}:`, err);
+                    }
+                } else {
+                    // Update logic would go here
+                    console.log(`Event ${gEvent.summary} already synced`);
+                }
+            }
 
         } catch (error) {
             console.error(`Sync job failed for user ${userId}:`, error);
