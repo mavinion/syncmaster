@@ -50,4 +50,30 @@ export class GoogleCalendarService {
             throw error;
         }
     }
+
+    async listCalendars() {
+        const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+        try {
+            const response = await calendar.calendarList.list();
+            return response.data.items || [];
+        } catch (error) {
+            console.error('Error fetching Google calendars:', error);
+            throw error;
+        }
+    }
+
+    async createCalendar(summary: string) {
+        const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+        try {
+            const response = await calendar.calendars.insert({
+                requestBody: {
+                    summary,
+                },
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error creating Google calendar:', error);
+            throw error;
+        }
+    }
 }

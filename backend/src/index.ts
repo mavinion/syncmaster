@@ -3,20 +3,31 @@ import dotenv from 'dotenv';
 import passport from 'passport';
 import { setupGoogleStrategy } from './modules/auth/google.strategy';
 import authRoutes from './modules/auth/auth.routes';
+import syncRoutes from './modules/sync/sync.routes';
 import { setupSyncWorker } from './modules/sync/sync.worker';
+
+import cors from 'cors';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(cors({
+    origin: 'http://localhost:3001',
+    credentials: true
+}));
 app.use(express.json());
 app.use(passport.initialize());
 
 setupGoogleStrategy();
 setupSyncWorker();
 
+import calendarRoutes from './modules/sync/calendars.routes';
+
 app.use('/auth', authRoutes);
+app.use('/sync', syncRoutes);
+app.use('/calendars', calendarRoutes);
 
 app.get('/', (req, res) => {
     res.send('SyncMaster API is running');
