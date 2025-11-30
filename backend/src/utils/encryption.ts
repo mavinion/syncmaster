@@ -2,6 +2,11 @@ import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-cbc';
 const SECRET_KEY = process.env.ENCRYPTION_KEY || 'default_secret_key_must_be_32_bytes_long!'; // 32 chars
+
+if (!process.env.ENCRYPTION_KEY) {
+    console.warn('WARNING: Using default insecure ENCRYPTION_KEY. Set ENCRYPTION_KEY in .env for production security.');
+}
+
 const IV_LENGTH = 16;
 
 export const encrypt = (text: string): string => {

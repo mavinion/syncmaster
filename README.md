@@ -83,3 +83,25 @@ This will run the entire stack (Database, Redis, Backend, Frontend) in container
 *   Real-time updates via Webhooks
 *   Conflict resolution
 *   Multi-user support
+
+## Data Privacy & Security
+
+### Privacy
+This application is designed to be self-hosted and respects your data privacy. It does not send data to any external analytics services. All data is stored locally in your PostgreSQL database.
+For more details, please read our [Privacy Policy](PRIVACY.md).
+
+### Security
+> [!IMPORTANT]
+> **Encryption Key**: For production use, you **MUST** set the `ENCRYPTION_KEY` environment variable in `backend/.env`. This key is used to encrypt your Google and Apple credentials. If not set, a default (insecure) key is used, which is **NOT SAFE** for production.
+
+To generate a secure key:
+```bash
+openssl rand -hex 16
+```
+Add this to your `backend/.env` file:
+```
+ENCRYPTION_KEY=your_generated_key_here
+```
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

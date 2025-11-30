@@ -170,7 +170,7 @@ export const setupSyncWorker = () => {
                             }
                         }
                     } catch (e) {
-                        await logSync('ERROR', `Failed to handle Google calendar: ${mapping.displayName}`, e);
+                        await logSync('ERROR', `Failed to handle Google calendar for mapping ${mapping.id}`, e);
                         continue;
                     }
                 }
@@ -188,7 +188,7 @@ export const setupSyncWorker = () => {
                             await prisma.calendarMapping.update({ where: { id: mapping.id }, data: { appleCalendarUrl: appleUrl } });
                         }
                     } catch (e) {
-                        await logSync('ERROR', `Failed to handle Apple calendar: ${mapping.displayName}`, e);
+                        await logSync('ERROR', `Failed to handle Apple calendar for mapping ${mapping.id}`, e);
                         continue;
                     }
                 }
@@ -205,11 +205,11 @@ export const setupSyncWorker = () => {
                 } catch (e: any) {
                     // Check for 404 Not Found or 410 Gone
                     if (e.code === 404 || e.code === 410 || (e.response && (e.response.status === 404 || e.response.status === 410))) {
-                        await logSync('WARN', `Google calendar ${mapping.displayName} not found (deleted). Removing mapping.`);
+                        await logSync('WARN', `Google calendar for mapping ${mapping.id} not found (deleted). Removing mapping.`);
                         await prisma.calendarMapping.delete({ where: { id: mapping.id } });
                         continue;
                     }
-                    await logSync('ERROR', `Failed to fetch Google events for ${mapping.displayName}`, e);
+                    await logSync('ERROR', `Failed to fetch Google events for mapping ${mapping.id}`, e);
                 }
 
                 try {
@@ -217,14 +217,14 @@ export const setupSyncWorker = () => {
                 } catch (e: any) {
                     // Check for 404 Not Found or 410 Gone
                     if (e.response && (e.response.status === 404 || e.response.status === 410)) {
-                        await logSync('WARN', `Apple calendar ${mapping.displayName} not found (deleted). Removing mapping.`);
+                        await logSync('WARN', `Apple calendar for mapping ${mapping.id} not found (deleted). Removing mapping.`);
                         await prisma.calendarMapping.delete({ where: { id: mapping.id } });
                         continue;
                     }
-                    await logSync('ERROR', `Failed to fetch Apple events for ${mapping.displayName}`, e);
+                    await logSync('ERROR', `Failed to fetch Apple events for mapping ${mapping.id}`, e);
                 }
 
-                await logSync('INFO', `Fetched ${googleEvents.length} Google events and ${appleEvents.length} Apple events for ${mapping.displayName}`);
+                await logSync('INFO', `Fetched ${googleEvents.length} Google events and ${appleEvents.length} Apple events for mapping ${mapping.id}`);
 
 
                 // 6. Sync Google -> Apple
@@ -274,10 +274,10 @@ export const setupSyncWorker = () => {
                                     }
 
                                     await prisma.eventMapping.delete({ where: { id: existingMapping.id } });
-                                    syncActions.push(`[Google -> Apple] Deleted event: "${gEvent.summary}"`);
+                                    syncActions.push(`[Google -> Apple] Deleted event: ID ${gEvent.id}`);
                                 } catch (err) {
                                     await logSync('ERROR', `Failed to delete Apple event for cancelled Google event ${gEvent.id}`, err);
-                                    syncActions.push(`[Error] Failed to delete Apple event: "${gEvent.summary}"`);
+                                    syncActions.push(`[Error] Failed to delete Apple event for Google event ID ${gEvent.id}`);
                                 }
                             }
                             continue; // Skip further processing for cancelled events
@@ -301,7 +301,7 @@ export const setupSyncWorker = () => {
                                         appleEtag: duplicate.etag
                                     },
                                 });
-                                syncActions.push(`[Link] Linked existing events: "${gEvent.summary}"`);
+                                syncActions.push(`[Link] Linked existing events: Google ID ${gEvent.id}`);
                             } else {
                                 try {
                                     const newAppleId = await appleService.createEvent(appleUrl, {
@@ -338,10 +338,10 @@ export const setupSyncWorker = () => {
                                         },
                                     });
                                     totalSyncedToApple++;
-                                    syncActions.push(`[Google -> Apple] Created event: "${gEvent.summary}"`);
+                                    syncActions.push(`[Google -> Apple] Created event: Google ID ${gEvent.id}`);
                                 } catch (err) {
                                     console.error(`Failed to sync Google event ${gEvent.id} to Apple:`, err);
-                                    syncActions.push(`[Error] Failed to sync Google event to Apple: "${gEvent.summary}"`);
+                                    syncActions.push(`[Error] Failed to sync Google event to Apple: ID ${gEvent.id}`);
                                 }
                             }
                         } else {
@@ -358,7 +358,7 @@ export const setupSyncWorker = () => {
                                     const shouldUpdateApple = existingMapping.googleEtag ? googleChanged : googleTimestampChanged;
 
                                     if (shouldUpdateApple) {
-                                        console.log(`[DEBUG] Google update detected for ${gEvent.summary}. ETag: ${gEvent.etag} vs ${existingMapping.googleEtag}`);
+                                        console.log(`[DEBUG] Google update detected for event ${gEvent.id}. ETag: ${gEvent.etag} vs ${existingMapping.googleEtag}`);
 
                                         // Conflict Check
                                         const appleChanged = appleEvent.etag && appleEvent.etag !== existingMapping.appleEtag;
@@ -398,10 +398,10 @@ export const setupSyncWorker = () => {
                                                 }
                                             });
                                             totalSyncedToApple++;
-                                            syncActions.push(`[Google -> Apple] Updated event: "${gEvent.summary}"`);
+                                            syncActions.push(`[Google -> Apple] Updated event: Google ID ${gEvent.id}`);
                                         } catch (err) {
                                             console.error(`Failed to update Apple event ${appleEvent.id}:`, err);
-                                            syncActions.push(`[Error] Failed to update Apple event: "${gEvent.summary}"`);
+                                            syncActions.push(`[Error] Failed to update Apple event from Google event ID ${gEvent.id}`);
                                         }
                                     }
                                 }
@@ -458,7 +458,7 @@ export const setupSyncWorker = () => {
                                             googleEtag: duplicate.etag
                                         },
                                     });
-                                    syncActions.push(`[Link] Linked existing events: "${aEvent.summary}"`);
+                                    syncActions.push(`[Link] Linked existing events: Apple ID ${aEvent.id}`);
                                 }
                             } else {
                                 try {
@@ -485,11 +485,11 @@ export const setupSyncWorker = () => {
                                             },
                                         });
                                         totalSyncedToGoogle++;
-                                        syncActions.push(`[Apple -> Google] Created event: "${aEvent.summary}"`);
+                                        syncActions.push(`[Apple -> Google] Created event: Apple ID ${aEvent.id}`);
                                     }
                                 } catch (err) {
                                     console.error(`Failed to sync Apple event ${aEvent.id} to Google:`, err);
-                                    syncActions.push(`[Error] Failed to sync Apple event to Google: "${aEvent.summary}"`);
+                                    syncActions.push(`[Error] Failed to sync Apple event to Google: ID ${aEvent.id}`);
                                 }
                             }
                         } else {
@@ -526,10 +526,10 @@ export const setupSyncWorker = () => {
                                                 }
                                             });
                                             totalSyncedToGoogle++;
-                                            syncActions.push(`[Apple -> Google] Updated event: "${aEvent.summary}"`);
+                                            syncActions.push(`[Apple -> Google] Updated event: Apple ID ${aEvent.id}`);
                                         } catch (err) {
                                             console.error(`Failed to update Google event ${googleEvent.id}:`, err);
-                                            syncActions.push(`[Error] Failed to update Google event: "${aEvent.summary}"`);
+                                            syncActions.push(`[Error] Failed to update Google event from Apple event ID ${aEvent.id}`);
                                         }
                                     }
                                 }
@@ -557,10 +557,10 @@ export const setupSyncWorker = () => {
                                         await googleService.updateEvent(googleId, gEvent.id, { status: 'cancelled' }); // Delete on Google
                                         await prisma.eventMapping.delete({ where: { id: mapping.id } });
                                         await logSync('INFO', `Deleted Google event ${gEvent.id} because Apple event ${mapping.appleEventId} is missing`);
-                                        syncActions.push(`[Apple -> Google] Deleted event: "${gEvent.summary}"`);
+                                        syncActions.push(`[Apple -> Google] Deleted event: Google ID ${gEvent.id}`);
                                     } catch (err) {
                                         await logSync('ERROR', `Failed to delete Google event ${gEvent.id}`, err);
-                                        syncActions.push(`[Error] Failed to delete Google event: "${gEvent.summary}"`);
+                                        syncActions.push(`[Error] Failed to delete Google event: ID ${gEvent.id}`);
                                     }
                                 }
                             }

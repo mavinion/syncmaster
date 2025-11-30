@@ -493,7 +493,7 @@ END:VCALENDAR`;
   async listCalendars() {
     console.log('Starting Apple calendar discovery...');
     const homeUrl = await this.discoverCalendarUrl();
-    console.log('Discovered Home URL:', homeUrl);
+    console.log('Discovered Home URL');
     try {
       const response = await axios({
         method: 'PROPFIND',
@@ -597,7 +597,7 @@ END:VCALENDAR`;
               continue;
             }
 
-            console.log('Found calendar:', displayName, fullUrl);
+            console.log('Found calendar:', fullUrl);
             calendars.push({
               id: fullUrl,
               summary: displayName,
@@ -618,7 +618,7 @@ END:VCALENDAR`;
     const calendarUuid = uuidv4().toUpperCase(); // iCloud uses uppercase UUIDs typically
     const newCalendarUrl = `${homeUrl}${calendarUuid}/`;
 
-    console.log(`Creating new Apple calendar at: ${newCalendarUrl}`);
+    console.log('Creating new Apple calendar');
 
     try {
       await axios({
