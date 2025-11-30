@@ -61,7 +61,7 @@ export class GoogleCalendarService {
         const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
         try {
-            const response = await calendar.events.update({
+            const response = await calendar.events.patch({
                 calendarId,
                 eventId,
                 requestBody: event,

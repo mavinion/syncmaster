@@ -145,6 +145,7 @@ export const setupSyncWorker = () => {
 
             let totalSyncedToApple = 0;
             let totalSyncedToGoogle = 0;
+            const syncActions: string[] = [];
 
             for (const mapping of mappings) {
                 let googleId = mapping.googleCalendarId;
@@ -223,6 +224,9 @@ export const setupSyncWorker = () => {
                     await logSync('ERROR', `Failed to fetch Apple events for ${mapping.displayName}`, e);
                 }
 
+                await logSync('INFO', `Fetched ${googleEvents.length} Google events and ${appleEvents.length} Apple events for ${mapping.displayName}`);
+
+
                 // 6. Sync Google -> Apple
                 if (mapping.syncDirection === 'BIDIRECTIONAL' || mapping.syncDirection === 'GOOGLE_TO_APPLE') {
                     for (const gEvent of googleEvents) {
@@ -250,8 +254,10 @@ export const setupSyncWorker = () => {
                                     }
 
                                     await prisma.eventMapping.delete({ where: { id: existingMapping.id } });
+                                    syncActions.push(`[Google -> Apple] Deleted event: "${gEvent.summary}"`);
                                 } catch (err) {
                                     await logSync('ERROR', `Failed to delete Apple event for cancelled Google event ${gEvent.id}`, err);
+                                    syncActions.push(`[Error] Failed to delete Apple event: "${gEvent.summary}"`);
                                 }
                             }
                             continue; // Skip further processing for cancelled events
@@ -268,6 +274,7 @@ export const setupSyncWorker = () => {
                                 await prisma.eventMapping.create({
                                     data: { userId, googleEventId: gEvent.id, appleEventId: duplicate.id, lastSyncedAt: new Date() },
                                 });
+                                syncActions.push(`[Link] Linked existing events: "${gEvent.summary}"`);
                             } else {
                                 try {
                                     const newAppleId = await appleService.createEvent(appleUrl, {
@@ -284,8 +291,10 @@ export const setupSyncWorker = () => {
                                         data: { userId, googleEventId: gEvent.id, appleEventId: newAppleId, lastSyncedAt: new Date() },
                                     });
                                     totalSyncedToApple++;
+                                    syncActions.push(`[Google -> Apple] Created event: "${gEvent.summary}"`);
                                 } catch (err) {
                                     console.error(`Failed to sync Google event ${gEvent.id} to Apple:`, err);
+                                    syncActions.push(`[Error] Failed to sync Google event to Apple: "${gEvent.summary}"`);
                                 }
                             }
                         } else {
@@ -321,8 +330,10 @@ export const setupSyncWorker = () => {
                                                 data: { lastSyncedAt: new Date() }
                                             });
                                             totalSyncedToApple++;
+                                            syncActions.push(`[Google -> Apple] Updated event: "${gEvent.summary}"`);
                                         } catch (err) {
                                             console.error(`Failed to update Apple event ${appleEvent.id}:`, err);
+                                            syncActions.push(`[Error] Failed to update Apple event: "${gEvent.summary}"`);
                                         }
                                     }
                                 }
@@ -372,6 +383,7 @@ export const setupSyncWorker = () => {
                                     await prisma.eventMapping.create({
                                         data: { userId, googleEventId: duplicate.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
                                     });
+                                    syncActions.push(`[Link] Linked existing events: "${aEvent.summary}"`);
                                 }
                             } else {
                                 try {
@@ -391,9 +403,11 @@ export const setupSyncWorker = () => {
                                             data: { userId, googleEventId: newGoogleEvent.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
                                         });
                                         totalSyncedToGoogle++;
+                                        syncActions.push(`[Apple -> Google] Created event: "${aEvent.summary}"`);
                                     }
                                 } catch (err) {
                                     console.error(`Failed to sync Apple event ${aEvent.id} to Google:`, err);
+                                    syncActions.push(`[Error] Failed to sync Apple event to Google: "${aEvent.summary}"`);
                                 }
                             }
                         } else {
@@ -424,8 +438,10 @@ export const setupSyncWorker = () => {
                                                 data: { lastSyncedAt: new Date() }
                                             });
                                             totalSyncedToGoogle++;
+                                            syncActions.push(`[Apple -> Google] Updated event: "${aEvent.summary}"`);
                                         } catch (err) {
                                             console.error(`Failed to update Google event ${googleEvent.id}:`, err);
+                                            syncActions.push(`[Error] Failed to update Google event: "${aEvent.summary}"`);
                                         }
                                     }
                                 }
@@ -453,8 +469,10 @@ export const setupSyncWorker = () => {
                                         await googleService.updateEvent(googleId, gEvent.id, { status: 'cancelled' }); // Delete on Google
                                         await prisma.eventMapping.delete({ where: { id: mapping.id } });
                                         await logSync('INFO', `Deleted Google event ${gEvent.id} because Apple event ${mapping.appleEventId} is missing`);
+                                        syncActions.push(`[Apple -> Google] Deleted event: "${gEvent.summary}"`);
                                     } catch (err) {
                                         await logSync('ERROR', `Failed to delete Google event ${gEvent.id}`, err);
+                                        syncActions.push(`[Error] Failed to delete Google event: "${gEvent.summary}"`);
                                     }
                                 }
                             }
@@ -463,7 +481,7 @@ export const setupSyncWorker = () => {
                 }
             }
 
-            await logSync('SUCCESS', `Sync completed. Synced ${totalSyncedToApple} to Apple, ${totalSyncedToGoogle} to Google.`);
+            await logSync('SUCCESS', `Sync completed. Synced ${totalSyncedToApple} to Apple, ${totalSyncedToGoogle} to Google.`, syncActions);
 
         } catch (error: any) {
             console.error(`Sync job failed for user ${userId}:`, error);

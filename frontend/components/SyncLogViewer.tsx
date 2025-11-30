@@ -93,7 +93,25 @@ export function SyncLogViewer({ userId }: { userId: string }) {
 
                                     {expandedLogId === log.id && log.details && (
                                         <div className="mt-3 ml-7 p-2 bg-zinc-100 rounded text-xs font-mono overflow-x-auto">
-                                            <pre>{log.details}</pre>
+                                            {(() => {
+                                                try {
+                                                    const parsed = JSON.parse(log.details);
+                                                    if (Array.isArray(parsed)) {
+                                                        return (
+                                                            <ul className="space-y-1">
+                                                                {parsed.map((item, i) => (
+                                                                    <li key={i} className={`${item.startsWith('[Error]') ? 'text-red-600' : 'text-zinc-700'}`}>
+                                                                        {item}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        );
+                                                    }
+                                                    return <pre>{JSON.stringify(parsed, null, 2)}</pre>;
+                                                } catch (e) {
+                                                    return <pre>{log.details}</pre>;
+                                                }
+                                            })()}
                                         </div>
                                     )}
                                 </div>
