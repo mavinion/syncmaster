@@ -224,104 +224,106 @@ export const setupSyncWorker = () => {
                 }
 
                 // 6. Sync Google -> Apple
-                for (const gEvent of googleEvents) {
-                    if (!gEvent.id) continue;
+                if (mapping.syncDirection === 'BIDIRECTIONAL' || mapping.syncDirection === 'GOOGLE_TO_APPLE') {
+                    for (const gEvent of googleEvents) {
+                        if (!gEvent.id) continue;
 
-                    const existingMapping = await prisma.eventMapping.findUnique({
-                        where: { userId_googleEventId: { userId, googleEventId: gEvent.id } },
-                    });
+                        const existingMapping = await prisma.eventMapping.findUnique({
+                            where: { userId_googleEventId: { userId, googleEventId: gEvent.id } },
+                        });
 
-                    // Handle Deletion (Google -> Apple)
-                    if (gEvent.status === 'cancelled') {
-                        if (existingMapping && existingMapping.appleEventId) {
-                            try {
-                                // We need the Apple href to delete it. 
-                                // We can try to find it in the fetched appleEvents list.
-                                const appleEvent = appleEvents.find(a => a.id === existingMapping.appleEventId);
+                        // Handle Deletion (Google -> Apple)
+                        if (gEvent.status === 'cancelled') {
+                            if (existingMapping && existingMapping.appleEventId) {
+                                try {
+                                    // We need the Apple href to delete it. 
+                                    // We can try to find it in the fetched appleEvents list.
+                                    const appleEvent = appleEvents.find(a => a.id === existingMapping.appleEventId);
 
-                                if (appleEvent && appleEvent.href) {
-                                    await appleService.deleteEvent(appleUrl, appleEvent.href);
-                                    await logSync('INFO', `Deleted Apple event ${existingMapping.appleEventId} because Google event ${gEvent.id} was cancelled`);
-                                } else {
-                                    // If not found in current list, it might be outside the window or already deleted.
-                                    // We can't delete it from Apple without href, but we should clean up the mapping.
-                                    await logSync('WARN', `Could not find Apple event ${existingMapping.appleEventId} to delete (might be outside sync window). Cleaning up mapping.`);
-                                }
-
-                                await prisma.eventMapping.delete({ where: { id: existingMapping.id } });
-                            } catch (err) {
-                                await logSync('ERROR', `Failed to delete Apple event for cancelled Google event ${gEvent.id}`, err);
-                            }
-                        }
-                        continue; // Skip further processing for cancelled events
-                    }
-
-                    if (!existingMapping) {
-                        const duplicate = appleEvents.find(aEvent =>
-                            aEvent.summary === gEvent.summary &&
-                            aEvent.start && gEvent.start &&
-                            new Date(aEvent.start).getTime() === new Date(gEvent.start.dateTime || gEvent.start.date).getTime()
-                        );
-
-                        if (duplicate && duplicate.id) {
-                            await prisma.eventMapping.create({
-                                data: { userId, googleEventId: gEvent.id, appleEventId: duplicate.id, lastSyncedAt: new Date() },
-                            });
-                        } else {
-                            try {
-                                const newAppleId = await appleService.createEvent(appleUrl, {
-                                    summary: gEvent.summary || 'Untitled Event',
-                                    description: gEvent.description,
-                                    start: gEvent.start,
-                                    end: gEvent.end,
-                                    location: gEvent.location,
-                                    recurrence: gEvent.recurrence, // Pass recurrence array
-                                    reminders: gEvent.reminders
-                                });
-
-                                await prisma.eventMapping.create({
-                                    data: { userId, googleEventId: gEvent.id, appleEventId: newAppleId, lastSyncedAt: new Date() },
-                                });
-                                totalSyncedToApple++;
-                            } catch (err) {
-                                console.error(`Failed to sync Google event ${gEvent.id} to Apple:`, err);
-                            }
-                        }
-                    } else {
-                        // Check for updates (Google -> Apple)
-                        if (existingMapping) {
-                            const appleEvent = appleEvents.find(e => e.id === existingMapping.appleEventId);
-                            if (appleEvent) {
-                                const googleUpdated = new Date(gEvent.updated);
-                                const lastSynced = new Date(existingMapping.lastSyncedAt);
-
-                                // If Google event is newer than last sync
-                                if (googleUpdated > lastSynced) {
-                                    // Conflict Check: If Apple event is ALSO newer than last sync, and NEWER than Google event, skip this update.
-                                    const appleUpdated = appleEvent.lastModified ? new Date(appleEvent.lastModified) : null;
-                                    if (appleUpdated && appleUpdated > lastSynced && appleUpdated > googleUpdated) {
-                                        console.log(`Conflict: Apple event ${appleEvent.id} is newer than Google event ${gEvent.id}. Skipping Google -> Apple sync.`);
-                                        continue;
+                                    if (appleEvent && appleEvent.href) {
+                                        await appleService.deleteEvent(appleUrl, appleEvent.href);
+                                        await logSync('INFO', `Deleted Apple event ${existingMapping.appleEventId} because Google event ${gEvent.id} was cancelled`);
+                                    } else {
+                                        // If not found in current list, it might be outside the window or already deleted.
+                                        // We can't delete it from Apple without href, but we should clean up the mapping.
+                                        await logSync('WARN', `Could not find Apple event ${existingMapping.appleEventId} to delete (might be outside sync window). Cleaning up mapping.`);
                                     }
 
-                                    console.log(`Updating Apple event ${appleEvent.id} from Google event ${gEvent.id}`);
-                                    try {
-                                        await appleService.updateEvent(appleUrl, appleEvent.id, {
-                                            summary: gEvent.summary || 'Untitled Event',
-                                            description: gEvent.description,
-                                            start: gEvent.start,
-                                            end: gEvent.end,
-                                            location: gEvent.location,
-                                            recurrence: gEvent.recurrence, // Pass recurrence array
-                                            reminders: gEvent.reminders
-                                        }, appleEvent.href); // Pass the href here
-                                        await prisma.eventMapping.update({
-                                            where: { id: existingMapping.id },
-                                            data: { lastSyncedAt: new Date() }
-                                        });
-                                        totalSyncedToApple++;
-                                    } catch (err) {
-                                        console.error(`Failed to update Apple event ${appleEvent.id}:`, err);
+                                    await prisma.eventMapping.delete({ where: { id: existingMapping.id } });
+                                } catch (err) {
+                                    await logSync('ERROR', `Failed to delete Apple event for cancelled Google event ${gEvent.id}`, err);
+                                }
+                            }
+                            continue; // Skip further processing for cancelled events
+                        }
+
+                        if (!existingMapping) {
+                            const duplicate = appleEvents.find(aEvent =>
+                                aEvent.summary === gEvent.summary &&
+                                aEvent.start && gEvent.start &&
+                                new Date(aEvent.start).getTime() === new Date(gEvent.start.dateTime || gEvent.start.date).getTime()
+                            );
+
+                            if (duplicate && duplicate.id) {
+                                await prisma.eventMapping.create({
+                                    data: { userId, googleEventId: gEvent.id, appleEventId: duplicate.id, lastSyncedAt: new Date() },
+                                });
+                            } else {
+                                try {
+                                    const newAppleId = await appleService.createEvent(appleUrl, {
+                                        summary: gEvent.summary || 'Untitled Event',
+                                        description: gEvent.description,
+                                        start: gEvent.start,
+                                        end: gEvent.end,
+                                        location: gEvent.location,
+                                        recurrence: gEvent.recurrence, // Pass recurrence array
+                                        reminders: gEvent.reminders
+                                    });
+
+                                    await prisma.eventMapping.create({
+                                        data: { userId, googleEventId: gEvent.id, appleEventId: newAppleId, lastSyncedAt: new Date() },
+                                    });
+                                    totalSyncedToApple++;
+                                } catch (err) {
+                                    console.error(`Failed to sync Google event ${gEvent.id} to Apple:`, err);
+                                }
+                            }
+                        } else {
+                            // Check for updates (Google -> Apple)
+                            if (existingMapping) {
+                                const appleEvent = appleEvents.find(e => e.id === existingMapping.appleEventId);
+                                if (appleEvent) {
+                                    const googleUpdated = new Date(gEvent.updated);
+                                    const lastSynced = new Date(existingMapping.lastSyncedAt);
+
+                                    // If Google event is newer than last sync
+                                    if (googleUpdated > lastSynced) {
+                                        // Conflict Check: If Apple event is ALSO newer than last sync, and NEWER than Google event, skip this update.
+                                        const appleUpdated = appleEvent.lastModified ? new Date(appleEvent.lastModified) : null;
+                                        if (appleUpdated && appleUpdated > lastSynced && appleUpdated > googleUpdated) {
+                                            console.log(`Conflict: Apple event ${appleEvent.id} is newer than Google event ${gEvent.id}. Skipping Google -> Apple sync.`);
+                                            continue;
+                                        }
+
+                                        console.log(`Updating Apple event ${appleEvent.id} from Google event ${gEvent.id}`);
+                                        try {
+                                            await appleService.updateEvent(appleUrl, appleEvent.id, {
+                                                summary: gEvent.summary || 'Untitled Event',
+                                                description: gEvent.description,
+                                                start: gEvent.start,
+                                                end: gEvent.end,
+                                                location: gEvent.location,
+                                                recurrence: gEvent.recurrence, // Pass recurrence array
+                                                reminders: gEvent.reminders
+                                            }, appleEvent.href); // Pass the href here
+                                            await prisma.eventMapping.update({
+                                                where: { id: existingMapping.id },
+                                                data: { lastSyncedAt: new Date() }
+                                            });
+                                            totalSyncedToApple++;
+                                        } catch (err) {
+                                            console.error(`Failed to update Apple event ${appleEvent.id}:`, err);
+                                        }
                                     }
                                 }
                             }
@@ -330,128 +332,130 @@ export const setupSyncWorker = () => {
                 }
 
                 // 7. Sync Apple -> Google
-                // Deduplicate Apple events to prevent processing the same event twice
-                const uniqueAppleEvents = Array.from(new Map(appleEvents.map(e => [e.id, e])).values());
+                if (mapping.syncDirection === 'BIDIRECTIONAL' || mapping.syncDirection === 'APPLE_TO_GOOGLE') {
+                    // Deduplicate Apple events to prevent processing the same event twice
+                    const uniqueAppleEvents = Array.from(new Map(appleEvents.map(e => [e.id, e])).values());
 
-                // Check for Apple -> Google Deletions
-                // We iterate over existing mappings for this calendar and check if the Apple event is missing
-                // BUT only if the mapping's lastSyncedAt is older than the current fetch? 
-                // Better approach: Iterate over all mappings for this user/calendar. 
-                // If the mapping points to a Google event that is active (not cancelled), 
-                // AND the Apple event is NOT in the fetched list (and we assume the list covers the window),
-                // THEN delete from Google.
+                    // Check for Apple -> Google Deletions
+                    // We iterate over existing mappings for this calendar and check if the Apple event is missing
+                    // BUT only if the mapping's lastSyncedAt is older than the current fetch? 
+                    // Better approach: Iterate over all mappings for this user/calendar. 
+                    // If the mapping points to a Google event that is active (not cancelled), 
+                    // AND the Apple event is NOT in the fetched list (and we assume the list covers the window),
+                    // THEN delete from Google.
 
-                // Optimization: We can just check the mappings we encountered in the Google loop? 
-                // No, we need to find mappings that exist but have no corresponding Apple event in the current fetch.
+                    // Optimization: We can just check the mappings we encountered in the Google loop? 
+                    // No, we need to find mappings that exist but have no corresponding Apple event in the current fetch.
 
-                // Let's iterate over uniqueAppleEvents for creation/update first.
-                const appleEventIds = new Set(uniqueAppleEvents.map(e => e.id));
+                    // Let's iterate over uniqueAppleEvents for creation/update first.
+                    const appleEventIds = new Set(uniqueAppleEvents.map(e => e.id));
 
-                for (const aEvent of uniqueAppleEvents) {
-                    if (!aEvent.id) continue;
+                    for (const aEvent of uniqueAppleEvents) {
+                        if (!aEvent.id) continue;
 
-                    const existingMapping = await prisma.eventMapping.findUnique({
-                        where: { userId_appleEventId: { userId, appleEventId: aEvent.id } },
-                    });
+                        const existingMapping = await prisma.eventMapping.findUnique({
+                            where: { userId_appleEventId: { userId, appleEventId: aEvent.id } },
+                        });
 
-                    if (!existingMapping) {
-                        const duplicate = googleEvents.find(gEvent =>
-                            gEvent.summary === aEvent.summary &&
-                            gEvent.start && aEvent.start &&
-                            new Date(gEvent.start.dateTime || gEvent.start.date).getTime() === new Date(aEvent.start).getTime()
-                        );
+                        if (!existingMapping) {
+                            const duplicate = googleEvents.find(gEvent =>
+                                gEvent.summary === aEvent.summary &&
+                                gEvent.start && aEvent.start &&
+                                new Date(gEvent.start.dateTime || gEvent.start.date).getTime() === new Date(aEvent.start).getTime()
+                            );
 
-                        if (duplicate && duplicate.id) {
-                            const alreadyLinked = await prisma.eventMapping.findUnique({
-                                where: { userId_googleEventId: { userId, googleEventId: duplicate.id } }
-                            });
-                            if (!alreadyLinked) {
-                                await prisma.eventMapping.create({
-                                    data: { userId, googleEventId: duplicate.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
+                            if (duplicate && duplicate.id) {
+                                const alreadyLinked = await prisma.eventMapping.findUnique({
+                                    where: { userId_googleEventId: { userId, googleEventId: duplicate.id } }
                                 });
-                            }
-                        } else {
-                            try {
-                                const googlePayload = {
-                                    summary: aEvent.summary || 'Untitled Event',
-                                    description: aEvent.description,
-                                    location: aEvent.location,
-                                    recurrence: aEvent.rrule ? [aEvent.rrule] : undefined,
-                                    reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
-                                    start: aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined,
-                                    end: aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined,
-                                };
-                                const newGoogleEvent = await googleService.createEvent(googleId, googlePayload);
-
-                                if (newGoogleEvent.id) {
+                                if (!alreadyLinked) {
                                     await prisma.eventMapping.create({
-                                        data: { userId, googleEventId: newGoogleEvent.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
+                                        data: { userId, googleEventId: duplicate.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
                                     });
-                                    totalSyncedToGoogle++;
                                 }
-                            } catch (err) {
-                                console.error(`Failed to sync Apple event ${aEvent.id} to Google:`, err);
-                            }
-                        }
-                    } else {
-                        // Check for updates (Apple -> Google)
-                        if (existingMapping) {
-                            const googleEvent = googleEvents.find(e => e.id === existingMapping.googleEventId);
-                            if (googleEvent) {
-                                const appleUpdated = aEvent.lastModified ? new Date(aEvent.lastModified) : null;
-                                const lastSynced = new Date(existingMapping.lastSyncedAt);
+                            } else {
+                                try {
+                                    const googlePayload = {
+                                        summary: aEvent.summary || 'Untitled Event',
+                                        description: aEvent.description,
+                                        location: aEvent.location,
+                                        recurrence: aEvent.rrule ? [aEvent.rrule] : undefined,
+                                        reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
+                                        start: aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined,
+                                        end: aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined,
+                                    };
+                                    const newGoogleEvent = await googleService.createEvent(googleId, googlePayload);
 
-                                // If Apple event is newer than last sync
-                                // Note: Apple might not always provide LAST-MODIFIED, so we might need a fallback or just skip
-                                if (appleUpdated && appleUpdated > lastSynced) {
-                                    console.log(`Updating Google event ${googleEvent.id} from Apple event ${aEvent.id}`);
-                                    try {
-                                        const googlePayload = {
-                                            summary: aEvent.summary || 'Untitled Event',
-                                            description: aEvent.description,
-                                            location: aEvent.location,
-                                            recurrence: aEvent.rrule ? [aEvent.rrule] : undefined,
-                                            reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
-                                            start: aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined,
-                                            end: aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined,
-                                        };
-                                        await googleService.updateEvent(googleId, googleEvent.id, googlePayload);
-                                        await prisma.eventMapping.update({
-                                            where: { id: existingMapping.id },
-                                            data: { lastSyncedAt: new Date() }
+                                    if (newGoogleEvent.id) {
+                                        await prisma.eventMapping.create({
+                                            data: { userId, googleEventId: newGoogleEvent.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
                                         });
                                         totalSyncedToGoogle++;
-                                    } catch (err) {
-                                        console.error(`Failed to update Google event ${googleEvent.id}:`, err);
+                                    }
+                                } catch (err) {
+                                    console.error(`Failed to sync Apple event ${aEvent.id} to Google:`, err);
+                                }
+                            }
+                        } else {
+                            // Check for updates (Apple -> Google)
+                            if (existingMapping) {
+                                const googleEvent = googleEvents.find(e => e.id === existingMapping.googleEventId);
+                                if (googleEvent) {
+                                    const appleUpdated = aEvent.lastModified ? new Date(aEvent.lastModified) : null;
+                                    const lastSynced = new Date(existingMapping.lastSyncedAt);
+
+                                    // If Apple event is newer than last sync
+                                    // Note: Apple might not always provide LAST-MODIFIED, so we might need a fallback or just skip
+                                    if (appleUpdated && appleUpdated > lastSynced) {
+                                        console.log(`Updating Google event ${googleEvent.id} from Apple event ${aEvent.id}`);
+                                        try {
+                                            const googlePayload = {
+                                                summary: aEvent.summary || 'Untitled Event',
+                                                description: aEvent.description,
+                                                location: aEvent.location,
+                                                recurrence: aEvent.rrule ? [aEvent.rrule] : undefined,
+                                                reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
+                                                start: aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined,
+                                                end: aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined,
+                                            };
+                                            await googleService.updateEvent(googleId, googleEvent.id, googlePayload);
+                                            await prisma.eventMapping.update({
+                                                where: { id: existingMapping.id },
+                                                data: { lastSyncedAt: new Date() }
+                                            });
+                                            totalSyncedToGoogle++;
+                                        } catch (err) {
+                                            console.error(`Failed to update Google event ${googleEvent.id}:`, err);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                // Handle Deletion (Apple -> Google)
-                for (const gEvent of googleEvents) {
-                    if (gEvent.status === 'cancelled') continue;
+                    // Handle Deletion (Apple -> Google)
+                    for (const gEvent of googleEvents) {
+                        if (gEvent.status === 'cancelled') continue;
 
-                    // Check if this Google event is mapped
-                    const mapping = await prisma.eventMapping.findUnique({
-                        where: { userId_googleEventId: { userId, googleEventId: gEvent.id } }
-                    });
+                        // Check if this Google event is mapped
+                        const mapping = await prisma.eventMapping.findUnique({
+                            where: { userId_googleEventId: { userId, googleEventId: gEvent.id } }
+                        });
 
-                    if (mapping && mapping.appleEventId) {
-                        // If mapped, check if the Apple event exists in our fetched list
-                        if (!appleEventIds.has(mapping.appleEventId)) {
-                            // Apple event is missing! It must have been deleted on Apple.
-                            // Verify it's within our sync window to be safe (though googleEvents list implies it is)
-                            const gStart = gEvent.start.dateTime || gEvent.start.date;
-                            if (new Date(gStart) >= now && new Date(gStart) <= thirtyDaysLater) {
-                                try {
-                                    await googleService.updateEvent(googleId, gEvent.id, { status: 'cancelled' }); // Delete on Google
-                                    await prisma.eventMapping.delete({ where: { id: mapping.id } });
-                                    await logSync('INFO', `Deleted Google event ${gEvent.id} because Apple event ${mapping.appleEventId} is missing`);
-                                } catch (err) {
-                                    await logSync('ERROR', `Failed to delete Google event ${gEvent.id}`, err);
+                        if (mapping && mapping.appleEventId) {
+                            // If mapped, check if the Apple event exists in our fetched list
+                            if (!appleEventIds.has(mapping.appleEventId)) {
+                                // Apple event is missing! It must have been deleted on Apple.
+                                // Verify it's within our sync window to be safe (though googleEvents list implies it is)
+                                const gStart = gEvent.start.dateTime || gEvent.start.date;
+                                if (new Date(gStart) >= now && new Date(gStart) <= thirtyDaysLater) {
+                                    try {
+                                        await googleService.updateEvent(googleId, gEvent.id, { status: 'cancelled' }); // Delete on Google
+                                        await prisma.eventMapping.delete({ where: { id: mapping.id } });
+                                        await logSync('INFO', `Deleted Google event ${gEvent.id} because Apple event ${mapping.appleEventId} is missing`);
+                                    } catch (err) {
+                                        await logSync('ERROR', `Failed to delete Google event ${gEvent.id}`, err);
+                                    }
                                 }
                             }
                         }

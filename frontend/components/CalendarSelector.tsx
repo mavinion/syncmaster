@@ -7,6 +7,7 @@ interface Calendar {
     id: string;
     summary: string;
     syncEnabled: boolean;
+    syncDirection: 'BIDIRECTIONAL' | 'GOOGLE_TO_APPLE' | 'APPLE_TO_GOOGLE';
 }
 
 interface CalendarList {
@@ -37,21 +38,21 @@ export function CalendarSelector({ userId }: { userId: string }) {
         }
     };
 
-    const toggleCalendar = (provider: 'google' | 'apple', calendar: Calendar) => {
-        const newEnabled = !calendar.syncEnabled;
+    const updateCalendarPreference = (provider: 'google' | 'apple', calendar: Calendar, updates: Partial<Calendar>) => {
         const otherProvider = provider === 'google' ? 'apple' : 'google';
 
         setCalendars(prev => {
             if (!prev) return null;
 
-            // Update the clicked calendar
+            // Update the modified calendar
             const updatedProviderList = prev[provider].map(c =>
-                c.id === calendar.id ? { ...c, syncEnabled: newEnabled } : c
+                c.id === calendar.id ? { ...c, ...updates } : c
             );
 
             // Update the matching calendar in the other list (by name)
+            // We also sync the direction and enabled state to keep them consistent visually
             const updatedOtherList = prev[otherProvider].map(c =>
-                c.summary === calendar.summary ? { ...c, syncEnabled: newEnabled } : c
+                c.summary === calendar.summary ? { ...c, ...updates } : c
             );
 
             return {
@@ -86,7 +87,8 @@ export function CalendarSelector({ userId }: { userId: string }) {
                     userId,
                     googleCalendarId: cal.id,
                     displayName: cal.summary,
-                    enabled: cal.syncEnabled
+                    enabled: cal.syncEnabled,
+                    syncDirection: cal.syncDirection
                 });
             }
 
@@ -96,7 +98,8 @@ export function CalendarSelector({ userId }: { userId: string }) {
                     userId,
                     appleCalendarUrl: cal.id,
                     displayName: cal.summary,
-                    enabled: cal.syncEnabled
+                    enabled: cal.syncEnabled,
+                    syncDirection: cal.syncDirection
                 });
             }
 
@@ -163,12 +166,26 @@ export function CalendarSelector({ userId }: { userId: string }) {
                             calendars.google.map(cal => (
                                 <div key={cal.id} className="flex items-center justify-between p-2 border rounded hover:bg-zinc-50">
                                     <span className="font-medium">{cal.summary}</span>
-                                    <input
-                                        type="checkbox"
-                                        checked={cal.syncEnabled}
-                                        onChange={() => toggleCalendar('google', cal)}
-                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                    />
+                                    <select
+                                        value={cal.syncEnabled ? cal.syncDirection : 'DISABLED'}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === 'DISABLED') {
+                                                updateCalendarPreference('google', cal, { syncEnabled: false });
+                                            } else {
+                                                updateCalendarPreference('google', cal, {
+                                                    syncEnabled: true,
+                                                    syncDirection: val as any
+                                                });
+                                            }
+                                        }}
+                                        className="text-sm border rounded p-1"
+                                    >
+                                        <option value="DISABLED">Disabled</option>
+                                        <option value="BIDIRECTIONAL">Bidirectional</option>
+                                        <option value="GOOGLE_TO_APPLE">Send to Apple</option>
+                                        <option value="APPLE_TO_GOOGLE">Receive from Apple</option>
+                                    </select>
                                 </div>
                             ))
                         )}
@@ -189,12 +206,26 @@ export function CalendarSelector({ userId }: { userId: string }) {
                             calendars.apple.map(cal => (
                                 <div key={cal.id} className="flex items-center justify-between p-2 border rounded hover:bg-zinc-50">
                                     <span className="font-medium">{cal.summary}</span>
-                                    <input
-                                        type="checkbox"
-                                        checked={cal.syncEnabled}
-                                        onChange={() => toggleCalendar('apple', cal)}
-                                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                    />
+                                    <select
+                                        value={cal.syncEnabled ? cal.syncDirection : 'DISABLED'}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === 'DISABLED') {
+                                                updateCalendarPreference('apple', cal, { syncEnabled: false });
+                                            } else {
+                                                updateCalendarPreference('apple', cal, {
+                                                    syncEnabled: true,
+                                                    syncDirection: val as any
+                                                });
+                                            }
+                                        }}
+                                        className="text-sm border rounded p-1"
+                                    >
+                                        <option value="DISABLED">Disabled</option>
+                                        <option value="BIDIRECTIONAL">Bidirectional</option>
+                                        <option value="APPLE_TO_GOOGLE">Send to Google</option>
+                                        <option value="GOOGLE_TO_APPLE">Receive from Google</option>
+                                    </select>
                                 </div>
                             ))
                         )}

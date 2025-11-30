@@ -60,6 +60,7 @@ model CalendarMapping {
   googleCalendarId String?
   appleCalendarUrl String?
   displayName      String
+  syncDirection    String   @default("BIDIRECTIONAL") // "BIDIRECTIONAL", "GOOGLE_TO_APPLE", "APPLE_TO_GOOGLE"
   syncEnabled      Boolean  @default(true)
   lastSyncedAt     DateTime @default(now())
   createdAt        DateTime @default(now())

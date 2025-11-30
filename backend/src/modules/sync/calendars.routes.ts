@@ -74,12 +74,14 @@ router.get('/list', async (req, res) => {
             google: googleCalendars.map(c => ({
                 id: c.id,
                 summary: c.summary,
-                syncEnabled: mappings.some(m => m.googleCalendarId === c.id && m.syncEnabled)
+                syncEnabled: mappings.some(m => m.googleCalendarId === c.id && m.syncEnabled),
+                syncDirection: mappings.find(m => m.googleCalendarId === c.id)?.syncDirection || 'BIDIRECTIONAL'
             })),
             apple: appleCalendars.map(c => ({
                 id: c.id,
                 summary: c.summary,
-                syncEnabled: mappings.some(m => m.appleCalendarUrl === c.id && m.syncEnabled)
+                syncEnabled: mappings.some(m => m.appleCalendarUrl === c.id && m.syncEnabled),
+                syncDirection: mappings.find(m => m.appleCalendarUrl === c.id)?.syncDirection || 'BIDIRECTIONAL'
             })),
             autoSyncEnabled: (await prisma.user.findUnique({ where: { id: String(userId) } }))?.autoSyncEnabled || false
         };
@@ -101,7 +103,7 @@ router.get('/list', async (req, res) => {
 // Save sync preferences
 // Save sync preferences
 router.post('/preferences', async (req, res) => {
-    const { userId, googleCalendarId, appleCalendarUrl, displayName, enabled } = req.body;
+    const { userId, googleCalendarId, appleCalendarUrl, displayName, enabled, syncDirection } = req.body;
 
     if (!userId || (!googleCalendarId && !appleCalendarUrl)) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -127,6 +129,7 @@ router.post('/preferences', async (req, res) => {
                 where: { id: mapping.id },
                 data: {
                     syncEnabled: enabled,
+                    syncDirection: syncDirection || mapping.syncDirection,
                     // Update IDs if provided and missing
                     googleCalendarId: googleCalendarId || mapping.googleCalendarId,
                     appleCalendarUrl: appleCalendarUrl || mapping.appleCalendarUrl,
@@ -142,7 +145,8 @@ router.post('/preferences', async (req, res) => {
                     googleCalendarId: googleCalendarId || undefined,
                     appleCalendarUrl: appleCalendarUrl || undefined,
                     displayName: displayName || 'Calendar',
-                    syncEnabled: enabled
+                    syncEnabled: enabled,
+                    syncDirection: syncDirection || 'BIDIRECTIONAL'
                 }
             });
         }

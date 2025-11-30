@@ -14,7 +14,7 @@ Many professionals and individuals use a mix of devices and services:
 A cloud-based, "set it and forget it" service that performs **true bi-directional synchronization**.
 
 ### Core Functionality:
-*   **Bi-Directional Sync:** Changes made in Google Calendar reflect in Apple Calendar, and vice-versa.
+*   **Bi-Directional & One-Way Sync:** Supports true bi-directional sync, as well as one-way sync (Google → Apple or Apple → Google). Changes are propagated according to the user's preference.
 *   **Real-Time Updates:** Webhooks and push notifications ensure changes are propagated almost instantly.
 *   **Cloud-Based:** No app installation required on the user's phone or computer. The sync happens server-to-server.
 *   **Conflict Resolution:** Intelligent handling of edits made to the same event on both platforms.
@@ -25,7 +25,7 @@ A cloud-based, "set it and forget it" service that performs **true bi-directiona
 2.  **Dashboard:** Simple web interface to link accounts and view sync status.
 3.  **Customizable Sync Rules:**
     *   Select specific calendars to sync.
-    *   One-way vs. Two-way sync options.
+    *   One-way (Google → Apple or Apple → Google) vs. Two-way sync options.
 4.  **History & Logs:** View a log of synced items to verify activity.
 
 ## 5. Target Audience
