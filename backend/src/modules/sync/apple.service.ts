@@ -428,6 +428,7 @@ END:VCALENDAR`;
             <d:prop>
               <d:displayname />
               <d:resourcetype />
+              <c:supported-calendar-component-set />
             </d:prop>
           </d:propfind>
         `
@@ -457,6 +458,9 @@ END:VCALENDAR`;
           if (resourceType && (resourceType['c:calendar'] || resourceType['calendar'])) {
             const href = resp.href[0];
 
+            // Ensure absolute URL
+            const fullUrl = href.startsWith('http') ? href : new URL(href, this.baseUrl).toString();
+
             let displayName = 'Untitled';
             if (prop.displayname && prop.displayname[0]) {
               const dn = prop.displayname[0];
@@ -467,8 +471,51 @@ END:VCALENDAR`;
               }
             }
 
-            // Ensure absolute URL
-            const fullUrl = href.startsWith('http') ? href : new URL(href, this.baseUrl).toString();
+            // Fetch supported components specifically for this calendar
+            let supportsEvents = true; // Default to true if check fails, to avoid hiding valid calendars
+            try {
+              const specificResp = await axios({
+                method: 'PROPFIND',
+                url: fullUrl,
+                headers: {
+                  'Authorization': this.authHeader,
+                  'Depth': '0',
+                  'Content-Type': 'application/xml; charset=utf-8',
+                },
+                data: `
+                        <d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
+                            <d:prop>
+                                <c:supported-calendar-component-set />
+                            </d:prop>
+                        </d:propfind>
+                    `
+              });
+
+              const specificResult = await parseStringPromise(specificResp.data);
+              const specificPropStat = specificResult['multistatus']?.['response']?.[0]?.['propstat']?.[0];
+              const specificProp = specificPropStat?.['prop']?.[0];
+
+              // Check for property with or without prefix
+              const supportedCompSet = specificProp?.['c:supported-calendar-component-set']?.[0] || specificProp?.['supported-calendar-component-set']?.[0];
+
+              if (supportedCompSet && supportedCompSet['c:comp']) {
+                const comps = supportedCompSet['c:comp'];
+                supportsEvents = comps.some((comp: any) => comp.$ && comp.$.name === 'VEVENT');
+              } else if (supportedCompSet && supportedCompSet['comp']) {
+                // Handle case where comp is also not prefixed
+                const comps = supportedCompSet['comp'];
+                supportsEvents = comps.some((comp: any) => comp.$ && comp.$.name === 'VEVENT');
+              } else {
+                // console.log(`No supported components found for ${displayName}`);
+              }
+            } catch (e) {
+              console.error(`Error fetching specific props for ${displayName}`, e);
+            }
+
+            if (!supportsEvents) {
+              console.log('Skipping calendar (no VEVENT support):', displayName);
+              continue;
+            }
 
             console.log('Found calendar:', displayName, fullUrl);
             calendars.push({
