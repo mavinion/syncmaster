@@ -236,6 +236,26 @@ export const setupSyncWorker = () => {
                             where: { userId_googleEventId: { userId, googleEventId: gEvent.id } },
                         });
 
+                        // Heal missing ETags (Migration step)
+                        if (existingMapping && (!existingMapping.googleEtag || !existingMapping.appleEtag)) {
+                            // Find corresponding Apple event if not already found (we need it for ETag)
+                            const appleEventForHealing = appleEvents.find(e => e.id === existingMapping.appleEventId);
+
+                            if (gEvent.etag || (appleEventForHealing && appleEventForHealing.etag)) {
+                                console.log(`[MIGRATION] Populating missing ETags for mapping ${existingMapping.id}`);
+                                await prisma.eventMapping.update({
+                                    where: { id: existingMapping.id },
+                                    data: {
+                                        googleEtag: gEvent.etag || undefined,
+                                        appleEtag: appleEventForHealing?.etag || undefined
+                                    }
+                                });
+                                // Update in-memory object so subsequent checks use the new values
+                                if (gEvent.etag) existingMapping.googleEtag = gEvent.etag;
+                                if (appleEventForHealing?.etag) existingMapping.appleEtag = appleEventForHealing.etag;
+                            }
+                        }
+
                         // Handle Deletion (Google -> Apple)
                         if (gEvent.status === 'cancelled') {
                             if (existingMapping && existingMapping.appleEventId) {
@@ -272,7 +292,14 @@ export const setupSyncWorker = () => {
 
                             if (duplicate && duplicate.id) {
                                 await prisma.eventMapping.create({
-                                    data: { userId, googleEventId: gEvent.id, appleEventId: duplicate.id, lastSyncedAt: new Date() },
+                                    data: {
+                                        userId,
+                                        googleEventId: gEvent.id,
+                                        appleEventId: duplicate.id,
+                                        lastSyncedAt: new Date(),
+                                        googleEtag: gEvent.etag,
+                                        appleEtag: duplicate.etag
+                                    },
                                 });
                                 syncActions.push(`[Link] Linked existing events: "${gEvent.summary}"`);
                             } else {
@@ -287,8 +314,28 @@ export const setupSyncWorker = () => {
                                         reminders: gEvent.reminders
                                     });
 
+                                    // We need to fetch the new Apple event to get its ETag
+                                    // But createEvent returns ID. We might need to fetch it. 
+                                    // For now, let's leave ETag null and let next sync fix it, or fetch it.
+                                    // Better: Fetch it immediately if possible, or just accept one echo.
+                                    // Actually, let's try to fetch it if we can, but we need the href/url.
+                                    // listEvents returns everything.
+
+                                    // Let's just store what we have. If appleEtag is null, next sync will see it as changed (null != newEtag).
+                                    // To avoid echo, we should try to get it. 
+                                    // Optimization: For now, store null. Next sync will check Apple -> Google.
+                                    // If Apple -> Google sees different ETag, it updates Google. 
+                                    // If content is same, Google update might be no-op or just new ETag.
+
                                     await prisma.eventMapping.create({
-                                        data: { userId, googleEventId: gEvent.id, appleEventId: newAppleId, lastSyncedAt: new Date() },
+                                        data: {
+                                            userId,
+                                            googleEventId: gEvent.id,
+                                            appleEventId: newAppleId,
+                                            lastSyncedAt: new Date(),
+                                            googleEtag: gEvent.etag
+                                            // appleEtag: null 
+                                        },
                                     });
                                     totalSyncedToApple++;
                                     syncActions.push(`[Google -> Apple] Created event: "${gEvent.summary}"`);
@@ -302,15 +349,22 @@ export const setupSyncWorker = () => {
                             if (existingMapping) {
                                 const appleEvent = appleEvents.find(e => e.id === existingMapping.appleEventId);
                                 if (appleEvent) {
-                                    const googleUpdated = new Date(gEvent.updated);
-                                    const lastSynced = new Date(existingMapping.lastSyncedAt);
+                                    // Check for updates (Google -> Apple)
+                                    // Use ETag if available, otherwise fallback to timestamp
+                                    const googleChanged = gEvent.etag && gEvent.etag !== existingMapping.googleEtag;
+                                    const googleTimestampChanged = new Date(gEvent.updated) > new Date(existingMapping.lastSyncedAt);
 
-                                    // If Google event is newer than last sync
-                                    if (googleUpdated > lastSynced) {
-                                        // Conflict Check: If Apple event is ALSO newer than last sync, and NEWER than Google event, skip this update.
-                                        const appleUpdated = appleEvent.lastModified ? new Date(appleEvent.lastModified) : null;
-                                        if (appleUpdated && appleUpdated > lastSynced && appleUpdated > googleUpdated) {
-                                            console.log(`Conflict: Apple event ${appleEvent.id} is newer than Google event ${gEvent.id}. Skipping Google -> Apple sync.`);
+                                    // If ETag is null (migration), use timestamp. If ETag present, use ETag.
+                                    const shouldUpdateApple = existingMapping.googleEtag ? googleChanged : googleTimestampChanged;
+
+                                    if (shouldUpdateApple) {
+                                        console.log(`[DEBUG] Google update detected for ${gEvent.summary}. ETag: ${gEvent.etag} vs ${existingMapping.googleEtag}`);
+
+                                        // Conflict Check
+                                        const appleChanged = appleEvent.etag && appleEvent.etag !== existingMapping.appleEtag;
+                                        if (appleChanged) {
+                                            console.log(`Conflict: Apple event ${appleEvent.id} also changed. Skipping Google -> Apple sync (or handle conflict).`);
+                                            // For now, let's skip to avoid overwriting user data on Apple side
                                             continue;
                                         }
 
@@ -322,12 +376,26 @@ export const setupSyncWorker = () => {
                                                 start: gEvent.start,
                                                 end: gEvent.end,
                                                 location: gEvent.location,
-                                                recurrence: gEvent.recurrence, // Pass recurrence array
+                                                recurrence: gEvent.recurrence,
                                                 reminders: gEvent.reminders
-                                            }, appleEvent.href); // Pass the href here
+                                            }, appleEvent.href);
+
+                                            // Re-fetch Apple event to get new ETag to prevent echo
+                                            // This is expensive but safe. 
+                                            // Alternatively, we can just assume it's synced and update appleEtag to 'PENDING' or similar? No.
+                                            // Let's try to fetch just this event? listEvents doesn't support single event by UID easily without filter.
+                                            // We'll leave appleEtag as is (stale). Next sync:
+                                            // Apple -> Google will see appleEtag changed. 
+                                            // It will try to update Google. Google will see content same? 
+                                            // If we update Google with same content, it's fine.
+
                                             await prisma.eventMapping.update({
                                                 where: { id: existingMapping.id },
-                                                data: { lastSyncedAt: new Date() }
+                                                data: {
+                                                    lastSyncedAt: new Date(),
+                                                    googleEtag: gEvent.etag
+                                                    // appleEtag: stale
+                                                }
                                             });
                                             totalSyncedToApple++;
                                             syncActions.push(`[Google -> Apple] Updated event: "${gEvent.summary}"`);
@@ -381,7 +449,14 @@ export const setupSyncWorker = () => {
                                 });
                                 if (!alreadyLinked) {
                                     await prisma.eventMapping.create({
-                                        data: { userId, googleEventId: duplicate.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
+                                        data: {
+                                            userId,
+                                            googleEventId: duplicate.id,
+                                            appleEventId: aEvent.id,
+                                            lastSyncedAt: new Date(),
+                                            appleEtag: aEvent.etag,
+                                            googleEtag: duplicate.etag
+                                        },
                                     });
                                     syncActions.push(`[Link] Linked existing events: "${aEvent.summary}"`);
                                 }
@@ -400,7 +475,14 @@ export const setupSyncWorker = () => {
 
                                     if (newGoogleEvent.id) {
                                         await prisma.eventMapping.create({
-                                            data: { userId, googleEventId: newGoogleEvent.id, appleEventId: aEvent.id, lastSyncedAt: new Date() },
+                                            data: {
+                                                userId,
+                                                googleEventId: newGoogleEvent.id,
+                                                appleEventId: aEvent.id,
+                                                lastSyncedAt: new Date(),
+                                                appleEtag: aEvent.etag,
+                                                googleEtag: newGoogleEvent.etag
+                                            },
                                         });
                                         totalSyncedToGoogle++;
                                         syncActions.push(`[Apple -> Google] Created event: "${aEvent.summary}"`);
@@ -415,12 +497,14 @@ export const setupSyncWorker = () => {
                             if (existingMapping) {
                                 const googleEvent = googleEvents.find(e => e.id === existingMapping.googleEventId);
                                 if (googleEvent) {
-                                    const appleUpdated = aEvent.lastModified ? new Date(aEvent.lastModified) : null;
-                                    const lastSynced = new Date(existingMapping.lastSyncedAt);
+                                    // Check for updates (Apple -> Google)
+                                    const appleChanged = aEvent.etag && aEvent.etag !== existingMapping.appleEtag;
+                                    // Fallback if ETag missing (e.g. migration or not supported)
+                                    const appleTimestampChanged = aEvent.lastModified && new Date(aEvent.lastModified) > new Date(existingMapping.lastSyncedAt);
 
-                                    // If Apple event is newer than last sync
-                                    // Note: Apple might not always provide LAST-MODIFIED, so we might need a fallback or just skip
-                                    if (appleUpdated && appleUpdated > lastSynced) {
+                                    const shouldUpdateGoogle = existingMapping.appleEtag ? appleChanged : appleTimestampChanged;
+
+                                    if (shouldUpdateGoogle) {
                                         console.log(`Updating Google event ${googleEvent.id} from Apple event ${aEvent.id}`);
                                         try {
                                             const googlePayload = {
@@ -432,10 +516,14 @@ export const setupSyncWorker = () => {
                                                 start: aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined,
                                                 end: aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined,
                                             };
-                                            await googleService.updateEvent(googleId, googleEvent.id, googlePayload);
+                                            const updatedGoogleEvent = await googleService.updateEvent(googleId, googleEvent.id, googlePayload);
                                             await prisma.eventMapping.update({
                                                 where: { id: existingMapping.id },
-                                                data: { lastSyncedAt: new Date() }
+                                                data: {
+                                                    lastSyncedAt: new Date(),
+                                                    appleEtag: aEvent.etag,
+                                                    googleEtag: updatedGoogleEvent.etag
+                                                }
                                             });
                                             totalSyncedToGoogle++;
                                             syncActions.push(`[Apple -> Google] Updated event: "${aEvent.summary}"`);

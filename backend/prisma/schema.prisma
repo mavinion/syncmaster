@@ -19,6 +19,7 @@ model User {
   syncJobs          SyncJob[]
   calendarMappings  CalendarMapping[]
   syncLogs          SyncLog[]
+  eventMappings     EventMapping[]
 }
 
 model Account {
@@ -46,9 +47,15 @@ model SyncJob {
 model EventMapping {
   id             String   @id @default(uuid())
   userId         String
-  googleEventId  String?
-  appleEventId   String?
+  googleEventId  String
+  appleEventId   String
+  appleEtag      String?  // Store Apple ETag
+  googleEtag     String?  // Store Google ETag
   lastSyncedAt   DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([userId, googleEventId])
   @@unique([userId, appleEventId])

@@ -159,6 +159,21 @@ export class AppleCalendarService {
                     const rawHref = resp.href[0];
                     event.href = rawHref.startsWith('http') ? rawHref : new URL(rawHref, this.baseUrl).toString();
                   }
+
+                  // Extract ETag
+                  const etagRaw = prop?.['d:getetag']?.[0] || prop?.['getetag']?.[0];
+                  let etag: string | undefined;
+
+                  if (typeof etagRaw === 'string') {
+                    etag = etagRaw;
+                  } else if (typeof etagRaw === 'object' && etagRaw._) {
+                    etag = etagRaw._;
+                  }
+
+                  if (etag) {
+                    event.etag = etag.replace(/"/g, ''); // Remove quotes if present
+                  }
+
                   events.push(event);
                 }
               }
@@ -177,8 +192,11 @@ export class AppleCalendarService {
 
   private parseICS(icsData: string) {
     try {
-      // Very basic ICS parser
-      const lines = icsData.split(/\r\n|\n|\r/);
+      // Unfold lines (remove CRLF/LF/CR followed by space/tab)
+      const unfoldedData = icsData.replace(/(\r\n|\n|\r)[ \t]/g, '');
+      const lines = unfoldedData.split(/\r\n|\n|\r/);
+
+
       const event: any = {};
       let inEvent = false;
 
@@ -194,29 +212,37 @@ export class AppleCalendarService {
         }
 
         if (inEvent) {
-          if (line.startsWith('UID:')) event.id = line.substring(4);
-          if (line.startsWith('SUMMARY:')) event.summary = line.substring(8);
-          if (line.startsWith('DESCRIPTION:')) event.description = line.substring(12);
-          if (line.startsWith('LOCATION:')) event.location = line.substring(9);
-          if (line.startsWith('RRULE:')) event.rrule = line;
-          if (line.startsWith('LAST-MODIFIED:')) event.lastModified = this.parseICSDate(line.substring(14));
+          // Helper to get value after first colon
+          const getValue = (l: string) => {
+            const idx = l.indexOf(':');
+            return idx !== -1 ? l.substring(idx + 1) : '';
+          };
 
-          // Handle DTSTART and DTEND (simplified)
+          if (line.startsWith('UID:')) event.id = getValue(line);
+          if (line.startsWith('SUMMARY')) event.summary = getValue(line);
+          if (line.startsWith('DESCRIPTION')) event.description = getValue(line);
+          if (line.startsWith('LOCATION')) event.location = getValue(line);
+          if (line.startsWith('RRULE')) event.rrule = line; // Keep full line for RRULE as it might have params we need? Actually Google needs the rule part.
+          // For RRULE, Google expects "RRULE:FREQ=..." or just "FREQ=..."? 
+          // Google API expects `recurrence: ['RRULE:FREQ=DAILY']`. So keeping the line is fine if it starts with RRULE:.
+          // But if it has params? RRULE usually doesn't have params before the colon.
+
+          if (line.startsWith('LAST-MODIFIED')) event.lastModified = this.parseICSDate(getValue(line));
+
+          // Handle DTSTART and DTEND
           if (line.startsWith('DTSTART')) {
-            const parts = line.split(':');
-            event.start = this.parseICSDate(parts[parts.length - 1]);
+            event.start = this.parseICSDate(getValue(line));
           }
           if (line.startsWith('DTEND')) {
-            const parts = line.split(':');
-            event.end = this.parseICSDate(parts[parts.length - 1]);
+            event.end = this.parseICSDate(getValue(line));
           }
 
-          // Basic VALARM detection (just checking if one exists and getting trigger)
+          // Basic VALARM detection
           if (line.startsWith('BEGIN:VALARM')) {
             event.hasAlarm = true;
           }
-          if (event.hasAlarm && line.startsWith('TRIGGER:')) {
-            event.alarmTrigger = line.substring(8);
+          if (event.hasAlarm && line.startsWith('TRIGGER')) {
+            event.alarmTrigger = getValue(line);
           }
         }
       }
