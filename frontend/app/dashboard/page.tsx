@@ -103,6 +103,35 @@ function DashboardContent() {
                     </Button>
                 </header>
 
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-amber-900">Important: Backup Your Data</h3>
+                        <p className="text-sm text-amber-800">
+                            Before syncing for the first time, we strongly recommend creating a backup of your Google and Apple calendars.
+                            While we take every precaution, software bugs can happen. You are responsible for your own data.
+                        </p>
+                        <div className="flex gap-4 text-sm">
+                            <a
+                                href="https://support.google.com/calendar/answer/37111"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-amber-900 underline hover:text-amber-700 font-medium"
+                            >
+                                How to backup Google Calendar
+                            </a>
+                            <a
+                                href="https://support.apple.com/guide/calendar/export-and-archive-calendars-icl1023/mac"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-amber-900 underline hover:text-amber-700 font-medium"
+                            >
+                                How to backup Apple Calendar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-6">
                     {/* Google Status */}
                     <Card>
