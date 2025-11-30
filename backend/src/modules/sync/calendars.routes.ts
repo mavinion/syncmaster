@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { GoogleCalendarService } from './google.service';
 import { AppleCalendarService } from './apple.service';
-import { decrypt } from '../../utils/encryption';
+import { decrypt, encrypt } from '../../utils/encryption';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -33,15 +33,15 @@ router.get('/list', async (req, res) => {
                 hasRefreshToken: !!googleAccount.refreshToken
             });
             const googleService = new GoogleCalendarService(
-                googleAccount.accessToken!,
-                googleAccount.refreshToken!,
+                decrypt(googleAccount.accessToken!),
+                googleAccount.refreshToken ? decrypt(googleAccount.refreshToken) : '',
                 async (tokens) => {
                     console.log('Refreshing Google tokens for user', userId);
                     await prisma.account.update({
                         where: { id: googleAccount.id },
                         data: {
-                            accessToken: tokens.access_token,
-                            refreshToken: tokens.refresh_token || googleAccount.refreshToken // Keep old refresh token if not provided
+                            accessToken: encrypt(tokens.access_token!),
+                            refreshToken: tokens.refresh_token ? encrypt(tokens.refresh_token) : undefined // Keep old refresh token if not provided
                         }
                     });
                 }

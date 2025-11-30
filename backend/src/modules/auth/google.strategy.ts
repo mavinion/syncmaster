@@ -1,6 +1,7 @@
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import passport from 'passport';
 import { PrismaClient } from '@prisma/client';
+import { encrypt } from '../../utils/encryption';
 
 const prisma = new PrismaClient();
 
@@ -47,8 +48,8 @@ export const setupGoogleStrategy = () => {
                         await prisma.account.update({
                             where: { id: existingAccount.id },
                             data: {
-                                accessToken,
-                                refreshToken, // Google only sends this on first auth or if access_type=offline
+                                accessToken: encrypt(accessToken),
+                                refreshToken: refreshToken ? encrypt(refreshToken) : undefined, // Google only sends this on first auth or if access_type=offline
                                 updatedAt: new Date(),
                             },
                         });
@@ -58,8 +59,8 @@ export const setupGoogleStrategy = () => {
                                 userId: user.id,
                                 provider: 'google',
                                 providerId: profile.id,
-                                accessToken,
-                                refreshToken,
+                                accessToken: encrypt(accessToken),
+                                refreshToken: refreshToken ? encrypt(refreshToken) : undefined,
                             },
                         });
                     }
