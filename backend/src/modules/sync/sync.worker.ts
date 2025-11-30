@@ -145,37 +145,22 @@ export const setupSyncWorker = () => {
             const futureWindow = new Date();
             futureWindow.setDate(now.getDate() + 365);
 
-            // Determine Past Window
-            // We check if there are ANY existing event mappings for this user and these calendars.
-            // If no mappings exist for a specific calendar pair, we treat it as an initial sync (1 year back).
-            // However, since we iterate per mapping, we can check per mapping.
-            // But wait, 'mappings' here are the configuration (CalendarMapping), not the events (EventMapping).
-
-            // Let's define the windows inside the loop for each mapping to be precise, 
-            // or just use a safe default if we can't easily determine "first sync" per mapping efficiently here without a query.
-            // A simple heuristic: If the user has *any* EventMappings, it's likely not the first sync. 
-            // But better: Check if *this specific mapping* has linked events.
-
-            // For simplicity and robustness, let's do this check inside the loop or just query once.
-            // Let's query once for the user to see if they have ANY synced events. 
-            // If 0 events synced ever, it's definitely first sync.
-            const totalEventMappings = await prisma.eventMapping.count({
-                where: { userId }
-            });
-
-            const isInitialSync = totalEventMappings === 0;
-            const pastDays = isInitialSync ? 365 : 30;
-
-            const pastWindow = new Date();
-            pastWindow.setDate(now.getDate() - pastDays);
-
-            console.log(`Sync Window: Past ${pastDays} days (${pastWindow.toISOString()}) - Future 365 days (${futureWindow.toISOString()})`);
-
             let totalSyncedToApple = 0;
             let totalSyncedToGoogle = 0;
             const syncActions: string[] = [];
 
             for (const mapping of mappings) {
+                // Determine Past Window per mapping
+                // If lastSyncedAt is close to createdAt (within a small margin, or identical), it's the first sync.
+                // Or simply if they are equal. Prisma defaults them to now().
+                const isInitialSync = mapping.lastSyncedAt.getTime() === mapping.createdAt.getTime();
+                const pastDays = isInitialSync ? 365 : 30;
+
+                const pastWindow = new Date();
+                pastWindow.setDate(now.getDate() - pastDays);
+
+                console.log(`[Mapping ${mapping.displayName}] Sync Window: Past ${pastDays} days (${pastWindow.toISOString()}) - Future 365 days`);
+
                 let googleId = mapping.googleCalendarId;
                 let appleUrl = mapping.appleCalendarUrl;
 
@@ -229,7 +214,7 @@ export const setupSyncWorker = () => {
 
                 try {
                     // Fetch Google events including deleted ones
-                    googleEvents = await googleService.listEvents(googleId, now, true);
+                    googleEvents = await googleService.listEvents(googleId, pastWindow, futureWindow, true);
                 } catch (e: any) {
                     // Check for 404 Not Found or 410 Gone
                     if (e.code === 404 || e.code === 410 || (e.response && (e.response.status === 404 || e.response.status === 410))) {
@@ -254,6 +239,12 @@ export const setupSyncWorker = () => {
 
                 await logSync('INFO', `Fetched ${googleEvents.length} Google events and ${appleEvents.length} Apple events for mapping ${mapping.id}`);
 
+
+                // Initialize tracking sets for race condition handling
+                // We do this BEFORE the loops so we can update them as we create events
+                const uniqueAppleEvents = Array.from(new Map(appleEvents.map(e => [e.id, e])).values());
+                const appleEventIds = new Set(uniqueAppleEvents.map(e => e.id));
+                const processedAppleEventIds = new Set<string>();
 
                 // 6. Sync Google -> Apple
                 if (mapping.syncDirection === 'BIDIRECTIONAL' || mapping.syncDirection === 'GOOGLE_TO_APPLE') {
@@ -366,6 +357,7 @@ export const setupSyncWorker = () => {
                                         },
                                     });
                                     totalSyncedToApple++;
+                                    appleEventIds.add(newAppleId); // Track new event to prevent deletion in next step
                                     syncActions.push(`[Google -> Apple] Created event: Google ID ${gEvent.id}`);
                                 } catch (err) {
                                     console.error(`Failed to sync Google event ${gEvent.id} to Apple:`, err);
@@ -391,9 +383,15 @@ export const setupSyncWorker = () => {
                                         // Conflict Check
                                         const appleChanged = appleEvent.etag && appleEvent.etag !== existingMapping.appleEtag;
                                         if (appleChanged) {
-                                            console.log(`Conflict: Apple event ${appleEvent.id} also changed. Skipping Google -> Apple sync (or handle conflict).`);
-                                            // For now, let's skip to avoid overwriting user data on Apple side
-                                            continue;
+                                            const googleTime = new Date(gEvent.updated).getTime();
+                                            const appleTime = new Date(appleEvent.lastModified).getTime();
+
+                                            if (googleTime > appleTime) {
+                                                console.log(`Conflict: Both changed, but Google is newer (${gEvent.updated} > ${appleEvent.lastModified}). Overwriting Apple.`);
+                                            } else {
+                                                console.log(`Conflict: Both changed, but Apple is newer or equal (${appleEvent.lastModified} >= ${gEvent.updated}). Skipping Google -> Apple sync.`);
+                                                continue;
+                                            }
                                         }
 
                                         console.log(`Updating Apple event ${appleEvent.id} from Google event ${gEvent.id}`);
@@ -426,6 +424,7 @@ export const setupSyncWorker = () => {
                                                 }
                                             });
                                             totalSyncedToApple++;
+                                            processedAppleEventIds.add(appleEvent.id); // Mark as processed so we don't sync back old data
                                             syncActions.push(`[Google -> Apple] Updated event: Google ID ${gEvent.id}`);
                                         } catch (err) {
                                             console.error(`Failed to update Apple event ${appleEvent.id}:`, err);
@@ -440,25 +439,11 @@ export const setupSyncWorker = () => {
 
                 // 7. Sync Apple -> Google
                 if (mapping.syncDirection === 'BIDIRECTIONAL' || mapping.syncDirection === 'APPLE_TO_GOOGLE') {
-                    // Deduplicate Apple events to prevent processing the same event twice
-                    const uniqueAppleEvents = Array.from(new Map(appleEvents.map(e => [e.id, e])).values());
-
-                    // Check for Apple -> Google Deletions
-                    // We iterate over existing mappings for this calendar and check if the Apple event is missing
-                    // BUT only if the mapping's lastSyncedAt is older than the current fetch? 
-                    // Better approach: Iterate over all mappings for this user/calendar. 
-                    // If the mapping points to a Google event that is active (not cancelled), 
-                    // AND the Apple event is NOT in the fetched list (and we assume the list covers the window),
-                    // THEN delete from Google.
-
-                    // Optimization: We can just check the mappings we encountered in the Google loop? 
-                    // No, we need to find mappings that exist but have no corresponding Apple event in the current fetch.
-
-                    // Let's iterate over uniqueAppleEvents for creation/update first.
-                    const appleEventIds = new Set(uniqueAppleEvents.map(e => e.id));
+                    // (Sets already initialized above to handle race conditions)
 
                     for (const aEvent of uniqueAppleEvents) {
                         if (!aEvent.id) continue;
+                        if (processedAppleEventIds.has(aEvent.id)) continue; // Skip if we just updated it from Google
 
                         const existingMapping = await prisma.eventMapping.findUnique({
                             where: { userId_appleEventId: { userId, appleEventId: aEvent.id } },
@@ -539,6 +524,21 @@ export const setupSyncWorker = () => {
                                     const shouldUpdateGoogle = existingMapping.appleEtag ? appleChanged : appleTimestampChanged;
 
                                     if (shouldUpdateGoogle) {
+                                        // Conflict Check (Apple -> Google)
+                                        // We need to check if Google also changed since last sync
+                                        const googleChanged = googleEvent.etag && googleEvent.etag !== existingMapping.googleEtag;
+                                        if (googleChanged) {
+                                            const googleTime = new Date(googleEvent.updated).getTime();
+                                            const appleTime = new Date(aEvent.lastModified).getTime();
+
+                                            if (appleTime > googleTime) {
+                                                console.log(`Conflict: Both changed, but Apple is newer (${aEvent.lastModified} > ${googleEvent.updated}). Overwriting Google.`);
+                                            } else {
+                                                console.log(`Conflict: Both changed, but Google is newer or equal (${googleEvent.updated} >= ${aEvent.lastModified}). Skipping Apple -> Google sync.`);
+                                                continue;
+                                            }
+                                        }
+
                                         console.log(`Updating Google event ${googleEvent.id} from Apple event ${aEvent.id}`);
                                         try {
                                             const googlePayload: any = {
@@ -592,7 +592,7 @@ export const setupSyncWorker = () => {
                                 // Apple event is missing! It must have been deleted on Apple.
                                 // Verify it's within our sync window to be safe (though googleEvents list implies it is)
                                 const gStart = gEvent.start.dateTime || gEvent.start.date;
-                                if (new Date(gStart) >= now && new Date(gStart) <= futureWindow) {
+                                if (new Date(gStart) >= pastWindow && new Date(gStart) <= futureWindow) {
                                     try {
                                         await googleService.updateEvent(googleId, gEvent.id, { status: 'cancelled' }); // Delete on Google
                                         await prisma.eventMapping.delete({ where: { id: mapping.id } });
@@ -607,6 +607,11 @@ export const setupSyncWorker = () => {
                         }
                     }
                 }
+                // Update lastSyncedAt for the calendar mapping
+                await prisma.calendarMapping.update({
+                    where: { id: mapping.id },
+                    data: { lastSyncedAt: new Date() }
+                });
             }
 
             await logSync('SUCCESS', `Sync completed. Synced ${totalSyncedToApple} to Apple, ${totalSyncedToGoogle} to Google.`, syncActions);

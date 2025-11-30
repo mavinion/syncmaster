@@ -23,13 +23,14 @@ export class GoogleCalendarService {
         });
     }
 
-    async listEvents(calendarId: string = 'primary', timeMin?: Date, showDeleted: boolean = false) {
+    async listEvents(calendarId: string = 'primary', timeMin?: Date, timeMax?: Date, showDeleted: boolean = false) {
         const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
         try {
             const response = await calendar.events.list({
                 calendarId,
                 timeMin: timeMin ? timeMin.toISOString() : new Date().toISOString(),
+                timeMax: timeMax ? timeMax.toISOString() : undefined,
                 maxResults: 2500,
                 singleEvents: false,
                 showDeleted: showDeleted,
