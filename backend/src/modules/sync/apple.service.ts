@@ -212,20 +212,23 @@ export class AppleCalendarService {
         }
 
         if (inEvent) {
-          // Helper to get value after first colon
+          // Helper to get value after first colon, ignoring colons in quoted params
           const getValue = (l: string) => {
-            const idx = l.indexOf(':');
-            return idx !== -1 ? l.substring(idx + 1) : '';
+            let inQuote = false;
+            for (let j = 0; j < l.length; j++) {
+              if (l[j] === '"') inQuote = !inQuote;
+              if (l[j] === ':' && !inQuote) {
+                return l.substring(j + 1);
+              }
+            }
+            return '';
           };
 
           if (line.startsWith('UID:')) event.id = getValue(line);
-          if (line.startsWith('SUMMARY')) event.summary = getValue(line);
-          if (line.startsWith('DESCRIPTION')) event.description = getValue(line);
-          if (line.startsWith('LOCATION')) event.location = getValue(line);
-          if (line.startsWith('RRULE')) event.rrule = line; // Keep full line for RRULE as it might have params we need? Actually Google needs the rule part.
-          // For RRULE, Google expects "RRULE:FREQ=..." or just "FREQ=..."? 
-          // Google API expects `recurrence: ['RRULE:FREQ=DAILY']`. So keeping the line is fine if it starts with RRULE:.
-          // But if it has params? RRULE usually doesn't have params before the colon.
+          if (line.startsWith('SUMMARY')) event.summary = this.unescapeICSValue(getValue(line));
+          if (line.startsWith('DESCRIPTION')) event.description = this.unescapeICSValue(getValue(line));
+          if (line.startsWith('LOCATION')) event.location = this.unescapeICSValue(getValue(line));
+          if (line.startsWith('RRULE')) event.rrule = line;
 
           if (line.startsWith('LAST-MODIFIED')) event.lastModified = this.parseICSDate(getValue(line));
 
@@ -253,11 +256,24 @@ export class AppleCalendarService {
           }
         }
       }
+      if (event.id) {
+        // console.log(`[DEBUG] Parsed Apple Event: ID=${event.id}, Summary=${event.summary}, Loc=${event.location}, Desc=${event.description?.substring(0, 20)}...`);
+      }
       return event.id ? event : null;
     } catch (e) {
       console.error('Failed to parse ICS', e);
       return null;
     }
+  }
+
+  private unescapeICSValue(value: string): string {
+    if (!value) return value;
+    return value
+      .replace(/\\n/g, '\n')
+      .replace(/\\N/g, '\n')
+      .replace(/\\;/g, ';')
+      .replace(/\\,/g, ',')
+      .replace(/\\\\/g, '\\');
   }
 
   private parseICSDate(dateStr: string, tzid?: string, isDate: boolean = false): Date {

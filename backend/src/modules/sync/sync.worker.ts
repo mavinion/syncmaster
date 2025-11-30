@@ -245,6 +245,7 @@ export const setupSyncWorker = () => {
                 const uniqueAppleEvents = Array.from(new Map(appleEvents.map(e => [e.id, e])).values());
                 const appleEventIds = new Set(uniqueAppleEvents.map(e => e.id));
                 const processedAppleEventIds = new Set<string>();
+                const healedAppleEventIds = new Set<string>();
 
                 // 6. Sync Google -> Apple
                 if (mapping.syncDirection === 'BIDIRECTIONAL' || mapping.syncDirection === 'GOOGLE_TO_APPLE') {
@@ -269,9 +270,17 @@ export const setupSyncWorker = () => {
                                         appleEtag: appleEventForHealing?.etag || undefined
                                     }
                                 });
+                                // Track that we healed this event so we don't trust the DB ETag in the next loop
+                                if (appleEventForHealing?.id) healedAppleEventIds.add(appleEventForHealing.id);
                                 // Update in-memory object so subsequent checks use the new values
-                                if (gEvent.etag) existingMapping.googleEtag = gEvent.etag;
-                                if (appleEventForHealing?.etag) existingMapping.appleEtag = appleEventForHealing.etag;
+                                // FIX: Do NOT update in-memory object here. 
+                                // If we update it, the subsequent check (appleChanged) will compare the fetched ETag with this new ETag (which are equal)
+                                // and conclude "No Change".
+                                // By leaving it as is (null/undefined), the check will fall back to Timestamp comparison,
+                                // which will correctly detect if the Apple event has been modified since creation.
+
+                                // if (gEvent.etag) existingMapping.googleEtag = gEvent.etag;
+                                // if (appleEventForHealing?.etag) existingMapping.appleEtag = appleEventForHealing.etag;
                             }
                         }
 
@@ -293,6 +302,7 @@ export const setupSyncWorker = () => {
                                     }
 
                                     await prisma.eventMapping.delete({ where: { id: existingMapping.id } });
+                                    processedAppleEventIds.add(existingMapping.appleEventId); // Mark as processed so we don't sync back
                                     syncActions.push(`[Google -> Apple] Deleted event: ID ${gEvent.id}`);
                                 } catch (err) {
                                     await logSync('ERROR', `Failed to delete Apple event for cancelled Google event ${gEvent.id}`, err);
@@ -451,6 +461,7 @@ export const setupSyncWorker = () => {
 
                         if (!existingMapping) {
                             const duplicate = googleEvents.find(gEvent =>
+                                gEvent.status !== 'cancelled' && // Ignore deleted events
                                 gEvent.summary === aEvent.summary &&
                                 gEvent.start && aEvent.start &&
                                 new Date(gEvent.start.dateTime || gEvent.start.date).getTime() === new Date(aEvent.start).getTime()
@@ -521,7 +532,17 @@ export const setupSyncWorker = () => {
                                     // Fallback if ETag missing (e.g. migration or not supported)
                                     const appleTimestampChanged = aEvent.lastModified && new Date(aEvent.lastModified) > new Date(existingMapping.lastSyncedAt);
 
-                                    const shouldUpdateGoogle = existingMapping.appleEtag ? appleChanged : appleTimestampChanged;
+                                    // If we just healed this event (backfilled ETag), the DB has the current ETag, so appleChanged will be false.
+                                    // But we want to check for updates (timestamp) in this specific case.
+                                    const forceTimestampCheck = healedAppleEventIds.has(aEvent.id);
+                                    const shouldUpdateGoogle = (existingMapping.appleEtag && !forceTimestampCheck) ? appleChanged : appleTimestampChanged;
+
+                                    console.log(`[DEBUG] Apple -> Google Update Check for ${aEvent.id}:
+                                        Apple ETag: ${aEvent.etag} vs DB: ${existingMapping.appleEtag}
+                                        Apple Mod: ${aEvent.lastModified?.toISOString()} vs Last Sync: ${existingMapping.lastSyncedAt.toISOString()}
+                                        Changed: ETag=${appleChanged}, Time=${appleTimestampChanged}, Force=${forceTimestampCheck}
+                                        => Should Update: ${shouldUpdateGoogle}
+                                    `);
 
                                     if (shouldUpdateGoogle) {
                                         // Conflict Check (Apple -> Google)
@@ -593,6 +614,35 @@ export const setupSyncWorker = () => {
                                 // Verify it's within our sync window to be safe (though googleEvents list implies it is)
                                 const gStart = gEvent.start.dateTime || gEvent.start.date;
                                 if (new Date(gStart) >= pastWindow && new Date(gStart) <= futureWindow) {
+                                    // HEALING: Check if the event was just re-created with a new ID (e.g. by Apple Calendar app)
+                                    // Look for an orphan Apple event with same Summary and Start Time
+                                    const potentialMatch = uniqueAppleEvents.find(a =>
+                                        a.summary === gEvent.summary &&
+                                        a.start && gEvent.start &&
+                                        new Date(a.start).getTime() === new Date(gEvent.start.dateTime || gEvent.start.date).getTime()
+                                    );
+
+                                    if (potentialMatch && potentialMatch.id) {
+                                        // Check if this potential match is already mapped to ANOTHER Google event
+                                        const isAlreadyMapped = await prisma.eventMapping.findUnique({
+                                            where: { userId_appleEventId: { userId, appleEventId: potentialMatch.id } }
+                                        });
+
+                                        if (!isAlreadyMapped) {
+                                            console.log(`[HEALING] Found matching Apple event ${potentialMatch.id} for Google event ${gEvent.id}. Updating mapping instead of deleting.`);
+                                            await prisma.eventMapping.update({
+                                                where: { id: mapping.id },
+                                                data: {
+                                                    appleEventId: potentialMatch.id,
+                                                    appleEtag: potentialMatch.etag,
+                                                    lastSyncedAt: new Date()
+                                                }
+                                            });
+                                            syncActions.push(`[Healed] Updated mapping for Google ID ${gEvent.id} to new Apple ID ${potentialMatch.id}`);
+                                            continue; // Skip deletion
+                                        }
+                                    }
+
                                     try {
                                         await googleService.updateEvent(googleId, gEvent.id, { status: 'cancelled' }); // Delete on Google
                                         await prisma.eventMapping.delete({ where: { id: mapping.id } });
