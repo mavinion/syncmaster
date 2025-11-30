@@ -231,10 +231,14 @@ export class AppleCalendarService {
 
           // Handle DTSTART and DTEND
           if (line.startsWith('DTSTART')) {
-            event.start = this.parseICSDate(getValue(line));
+            const tzidMatch = line.match(/TZID=([^:;]+)/);
+            const tzid = tzidMatch ? tzidMatch[1] : undefined;
+            event.start = this.parseICSDate(getValue(line), tzid);
           }
           if (line.startsWith('DTEND')) {
-            event.end = this.parseICSDate(getValue(line));
+            const tzidMatch = line.match(/TZID=([^:;]+)/);
+            const tzid = tzidMatch ? tzidMatch[1] : undefined;
+            event.end = this.parseICSDate(getValue(line), tzid);
           }
 
           // Basic VALARM detection
@@ -253,7 +257,7 @@ export class AppleCalendarService {
     }
   }
 
-  private parseICSDate(dateStr: string): Date {
+  private parseICSDate(dateStr: string, tzid?: string): Date {
     // 20230101T120000Z or 20230101
     if (!dateStr) return new Date();
 
@@ -269,11 +273,61 @@ export class AppleCalendarService {
     const minute = parseInt(dateStr.substring(11, 13));
     const second = parseInt(dateStr.substring(13, 15));
 
-    // Assume UTC if Z is present, otherwise local (simplified)
+    // If Z is present, it's UTC
     if (dateStr.endsWith('Z')) {
       return new Date(Date.UTC(year, month, day, hour, minute, second));
     }
 
+    // If TZID is provided, calculate UTC equivalent
+    if (tzid) {
+      try {
+        // 1. Create a UTC date with the local components
+        // e.g. 21:00 Local -> 21:00 UTC (temporarily)
+        const localAsUtc = new Date(Date.UTC(year, month, day, hour, minute, second));
+
+        // 2. Format this UTC date in the target timezone to see what time it "really" is there
+        // e.g. 21:00 UTC in Berlin might be 22:00
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: tzid,
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          second: 'numeric',
+          hour12: false,
+          timeZoneName: 'short'
+        });
+
+        const parts = formatter.formatToParts(localAsUtc);
+        const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0');
+
+        const targetYear = getPart('year');
+        const targetMonth = getPart('month') - 1;
+        const targetDay = getPart('day');
+        const targetHour = getPart('hour') === 24 ? 0 : getPart('hour'); // Intl sometimes returns 24? No, usually 0-23.
+        const targetMinute = getPart('minute');
+        const targetSecond = getPart('second');
+
+        // Reconstruct the date object from the formatted parts to get the "shifted" time in UTC context
+        const shiftedDate = new Date(Date.UTC(targetYear, targetMonth, targetDay, targetHour, targetMinute, targetSecond));
+
+        // 3. Calculate offset
+        // Offset = Shifted - Original
+        // e.g. 22:00 - 21:00 = +1h
+        const offsetMs = shiftedDate.getTime() - localAsUtc.getTime();
+
+        // 4. Subtract offset from the original "local as UTC" to get the true UTC
+        // True UTC = 21:00 - 1h = 20:00
+        return new Date(localAsUtc.getTime() - offsetMs);
+
+      } catch (e) {
+        console.warn(`Failed to convert timezone ${tzid}, falling back to UTC/Local`, e);
+      }
+    }
+
+    // Fallback: Treat as local (server time) or UTC if no TZID
+    // If we assume server is UTC, this is effectively treating it as UTC.
     return new Date(year, month, day, hour, minute, second);
   }
 
