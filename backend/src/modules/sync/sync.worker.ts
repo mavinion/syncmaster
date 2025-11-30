@@ -140,8 +140,36 @@ export const setupSyncWorker = () => {
             }
 
             const now = new Date();
-            const thirtyDaysLater = new Date();
-            thirtyDaysLater.setDate(now.getDate() + 30);
+
+            // Future Window: 1 Year
+            const futureWindow = new Date();
+            futureWindow.setDate(now.getDate() + 365);
+
+            // Determine Past Window
+            // We check if there are ANY existing event mappings for this user and these calendars.
+            // If no mappings exist for a specific calendar pair, we treat it as an initial sync (1 year back).
+            // However, since we iterate per mapping, we can check per mapping.
+            // But wait, 'mappings' here are the configuration (CalendarMapping), not the events (EventMapping).
+
+            // Let's define the windows inside the loop for each mapping to be precise, 
+            // or just use a safe default if we can't easily determine "first sync" per mapping efficiently here without a query.
+            // A simple heuristic: If the user has *any* EventMappings, it's likely not the first sync. 
+            // But better: Check if *this specific mapping* has linked events.
+
+            // For simplicity and robustness, let's do this check inside the loop or just query once.
+            // Let's query once for the user to see if they have ANY synced events. 
+            // If 0 events synced ever, it's definitely first sync.
+            const totalEventMappings = await prisma.eventMapping.count({
+                where: { userId }
+            });
+
+            const isInitialSync = totalEventMappings === 0;
+            const pastDays = isInitialSync ? 365 : 30;
+
+            const pastWindow = new Date();
+            pastWindow.setDate(now.getDate() - pastDays);
+
+            console.log(`Sync Window: Past ${pastDays} days (${pastWindow.toISOString()}) - Future 365 days (${futureWindow.toISOString()})`);
 
             let totalSyncedToApple = 0;
             let totalSyncedToGoogle = 0;
@@ -213,7 +241,7 @@ export const setupSyncWorker = () => {
                 }
 
                 try {
-                    appleEvents = await appleService.listEvents(appleUrl, now, thirtyDaysLater);
+                    appleEvents = await appleService.listEvents(appleUrl, pastWindow, futureWindow);
                 } catch (e: any) {
                     // Check for 404 Not Found or 410 Gone
                     if (e.response && (e.response.status === 404 || e.response.status === 410)) {
@@ -552,7 +580,7 @@ export const setupSyncWorker = () => {
                                 // Apple event is missing! It must have been deleted on Apple.
                                 // Verify it's within our sync window to be safe (though googleEvents list implies it is)
                                 const gStart = gEvent.start.dateTime || gEvent.start.date;
-                                if (new Date(gStart) >= now && new Date(gStart) <= thirtyDaysLater) {
+                                if (new Date(gStart) >= now && new Date(gStart) <= futureWindow) {
                                     try {
                                         await googleService.updateEvent(googleId, gEvent.id, { status: 'cancelled' }); // Delete on Google
                                         await prisma.eventMapping.delete({ where: { id: mapping.id } });

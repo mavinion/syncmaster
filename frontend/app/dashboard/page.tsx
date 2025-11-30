@@ -276,7 +276,7 @@ function DashboardContent() {
                         <ul className="space-y-2 text-sm">
                             <li><Link href="/features" className="hover:text-white">Features</Link></li>
                             <li><Link href="/login" className="hover:text-white">Login</Link></li>
-                            <li><Link href="https://github.com/bjoernkonrad/GoogleAppleSync" className="hover:text-white">GitHub</Link></li>
+                            <li><Link href="https://github.com/mavinion/syncmaster" className="hover:text-white">GitHub</Link></li>
                         </ul>
                     </div>
                     <div>
