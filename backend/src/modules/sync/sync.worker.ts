@@ -490,15 +490,21 @@ export const setupSyncWorker = () => {
                                 }
                             } else {
                                 try {
-                                    const googlePayload = {
+                                    const googlePayload: any = {
                                         summary: aEvent.summary || 'Untitled Event',
                                         description: aEvent.description,
                                         location: aEvent.location,
                                         recurrence: aEvent.rrule ? [aEvent.rrule] : undefined,
                                         reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
-                                        start: aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined,
-                                        end: aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined,
                                     };
+
+                                    if (aEvent.isAllDay) {
+                                        googlePayload.start = { date: aEvent.start.toISOString().split('T')[0] };
+                                        googlePayload.end = { date: aEvent.end.toISOString().split('T')[0] };
+                                    } else {
+                                        googlePayload.start = aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined;
+                                        googlePayload.end = aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined;
+                                    }
                                     const newGoogleEvent = await googleService.createEvent(googleId, googlePayload);
 
                                     if (newGoogleEvent.id) {
@@ -535,15 +541,21 @@ export const setupSyncWorker = () => {
                                     if (shouldUpdateGoogle) {
                                         console.log(`Updating Google event ${googleEvent.id} from Apple event ${aEvent.id}`);
                                         try {
-                                            const googlePayload = {
+                                            const googlePayload: any = {
                                                 summary: aEvent.summary || 'Untitled Event',
                                                 description: aEvent.description,
                                                 location: aEvent.location,
                                                 recurrence: aEvent.rrule ? [aEvent.rrule] : undefined,
                                                 reminders: convertAppleAlarmToGoogle(aEvent.alarmTrigger),
-                                                start: aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined,
-                                                end: aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined,
                                             };
+
+                                            if (aEvent.isAllDay) {
+                                                googlePayload.start = { date: aEvent.start.toISOString().split('T')[0] };
+                                                googlePayload.end = { date: aEvent.end.toISOString().split('T')[0] };
+                                            } else {
+                                                googlePayload.start = aEvent.start ? { dateTime: aEvent.start.toISOString(), timeZone: 'UTC' } : undefined;
+                                                googlePayload.end = aEvent.end ? { dateTime: aEvent.end.toISOString(), timeZone: 'UTC' } : undefined;
+                                            }
                                             const updatedGoogleEvent = await googleService.updateEvent(googleId, googleEvent.id, googlePayload);
                                             await prisma.eventMapping.update({
                                                 where: { id: existingMapping.id },

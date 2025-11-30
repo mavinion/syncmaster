@@ -233,12 +233,15 @@ export class AppleCalendarService {
           if (line.startsWith('DTSTART')) {
             const tzidMatch = line.match(/TZID=([^:;]+)/);
             const tzid = tzidMatch ? tzidMatch[1] : undefined;
-            event.start = this.parseICSDate(getValue(line), tzid);
+            const isDate = line.includes('VALUE=DATE');
+            if (isDate) event.isAllDay = true;
+            event.start = this.parseICSDate(getValue(line), tzid, isDate);
           }
           if (line.startsWith('DTEND')) {
             const tzidMatch = line.match(/TZID=([^:;]+)/);
             const tzid = tzidMatch ? tzidMatch[1] : undefined;
-            event.end = this.parseICSDate(getValue(line), tzid);
+            const isDate = line.includes('VALUE=DATE');
+            event.end = this.parseICSDate(getValue(line), tzid, isDate);
           }
 
           // Basic VALARM detection
@@ -257,7 +260,7 @@ export class AppleCalendarService {
     }
   }
 
-  private parseICSDate(dateStr: string, tzid?: string): Date {
+  private parseICSDate(dateStr: string, tzid?: string, isDate: boolean = false): Date {
     // 20230101T120000Z or 20230101
     if (!dateStr) return new Date();
 
@@ -265,8 +268,9 @@ export class AppleCalendarService {
     const month = parseInt(dateStr.substring(4, 6)) - 1;
     const day = parseInt(dateStr.substring(6, 8));
 
-    if (dateStr.length === 8) {
-      return new Date(year, month, day);
+    if (dateStr.length === 8 || isDate) {
+      // All-day event (YYYYMMDD) - Treat as UTC 00:00:00 to avoid timezone shifts
+      return new Date(Date.UTC(year, month, day));
     }
 
     const hour = parseInt(dateStr.substring(9, 11));
