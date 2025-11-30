@@ -156,7 +156,8 @@ export class AppleCalendarService {
                 if (event) {
                   // Capture the href (URL) of the event
                   if (resp.href && resp.href[0]) {
-                    event.href = resp.href[0];
+                    const rawHref = resp.href[0];
+                    event.href = rawHref.startsWith('http') ? rawHref : new URL(rawHref, this.baseUrl).toString();
                   }
                   events.push(event);
                 }
@@ -391,6 +392,21 @@ END:VCALENDAR`;
     } catch (error) {
       console.error('Error updating Apple event:', error);
       throw error;
+    }
+  }
+
+  async deleteEvent(calendarUrl: string, eventUrl: string) {
+    try {
+      await axios({
+        method: 'DELETE',
+        url: eventUrl,
+        headers: {
+          'Authorization': this.authHeader,
+        },
+      });
+    } catch (e) {
+      console.error('Failed to delete Apple event', e);
+      throw e;
     }
   }
 

@@ -23,7 +23,7 @@ export class GoogleCalendarService {
         });
     }
 
-    async listEvents(calendarId: string = 'primary', timeMin?: Date) {
+    async listEvents(calendarId: string = 'primary', timeMin?: Date, showDeleted: boolean = false) {
         const calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
 
         try {
@@ -32,6 +32,7 @@ export class GoogleCalendarService {
                 timeMin: timeMin ? timeMin.toISOString() : new Date().toISOString(),
                 maxResults: 2500,
                 singleEvents: false,
+                showDeleted: showDeleted,
             });
 
             return response.data.items || [];

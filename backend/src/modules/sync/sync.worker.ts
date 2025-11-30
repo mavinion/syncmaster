@@ -199,7 +199,8 @@ export const setupSyncWorker = () => {
                 let appleEvents: any[] = [];
 
                 try {
-                    googleEvents = await googleService.listEvents(googleId, now);
+                    // Fetch Google events including deleted ones
+                    googleEvents = await googleService.listEvents(googleId, now, true);
                 } catch (e: any) {
                     // Check for 404 Not Found or 410 Gone
                     if (e.code === 404 || e.code === 410 || (e.response && (e.response.status === 404 || e.response.status === 410))) {
@@ -229,6 +230,31 @@ export const setupSyncWorker = () => {
                     const existingMapping = await prisma.eventMapping.findUnique({
                         where: { userId_googleEventId: { userId, googleEventId: gEvent.id } },
                     });
+
+                    // Handle Deletion (Google -> Apple)
+                    if (gEvent.status === 'cancelled') {
+                        if (existingMapping && existingMapping.appleEventId) {
+                            try {
+                                // We need the Apple href to delete it. 
+                                // We can try to find it in the fetched appleEvents list.
+                                const appleEvent = appleEvents.find(a => a.id === existingMapping.appleEventId);
+
+                                if (appleEvent && appleEvent.href) {
+                                    await appleService.deleteEvent(appleUrl, appleEvent.href);
+                                    await logSync('INFO', `Deleted Apple event ${existingMapping.appleEventId} because Google event ${gEvent.id} was cancelled`);
+                                } else {
+                                    // If not found in current list, it might be outside the window or already deleted.
+                                    // We can't delete it from Apple without href, but we should clean up the mapping.
+                                    await logSync('WARN', `Could not find Apple event ${existingMapping.appleEventId} to delete (might be outside sync window). Cleaning up mapping.`);
+                                }
+
+                                await prisma.eventMapping.delete({ where: { id: existingMapping.id } });
+                            } catch (err) {
+                                await logSync('ERROR', `Failed to delete Apple event for cancelled Google event ${gEvent.id}`, err);
+                            }
+                        }
+                        continue; // Skip further processing for cancelled events
+                    }
 
                     if (!existingMapping) {
                         const duplicate = appleEvents.find(aEvent =>
@@ -307,6 +333,20 @@ export const setupSyncWorker = () => {
                 // Deduplicate Apple events to prevent processing the same event twice
                 const uniqueAppleEvents = Array.from(new Map(appleEvents.map(e => [e.id, e])).values());
 
+                // Check for Apple -> Google Deletions
+                // We iterate over existing mappings for this calendar and check if the Apple event is missing
+                // BUT only if the mapping's lastSyncedAt is older than the current fetch? 
+                // Better approach: Iterate over all mappings for this user/calendar. 
+                // If the mapping points to a Google event that is active (not cancelled), 
+                // AND the Apple event is NOT in the fetched list (and we assume the list covers the window),
+                // THEN delete from Google.
+
+                // Optimization: We can just check the mappings we encountered in the Google loop? 
+                // No, we need to find mappings that exist but have no corresponding Apple event in the current fetch.
+
+                // Let's iterate over uniqueAppleEvents for creation/update first.
+                const appleEventIds = new Set(uniqueAppleEvents.map(e => e.id));
+
                 for (const aEvent of uniqueAppleEvents) {
                     if (!aEvent.id) continue;
 
@@ -384,6 +424,34 @@ export const setupSyncWorker = () => {
                                     } catch (err) {
                                         console.error(`Failed to update Google event ${googleEvent.id}:`, err);
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Handle Deletion (Apple -> Google)
+                for (const gEvent of googleEvents) {
+                    if (gEvent.status === 'cancelled') continue;
+
+                    // Check if this Google event is mapped
+                    const mapping = await prisma.eventMapping.findUnique({
+                        where: { userId_googleEventId: { userId, googleEventId: gEvent.id } }
+                    });
+
+                    if (mapping && mapping.appleEventId) {
+                        // If mapped, check if the Apple event exists in our fetched list
+                        if (!appleEventIds.has(mapping.appleEventId)) {
+                            // Apple event is missing! It must have been deleted on Apple.
+                            // Verify it's within our sync window to be safe (though googleEvents list implies it is)
+                            const gStart = gEvent.start.dateTime || gEvent.start.date;
+                            if (new Date(gStart) >= now && new Date(gStart) <= thirtyDaysLater) {
+                                try {
+                                    await googleService.updateEvent(googleId, gEvent.id, { status: 'cancelled' }); // Delete on Google
+                                    await prisma.eventMapping.delete({ where: { id: mapping.id } });
+                                    await logSync('INFO', `Deleted Google event ${gEvent.id} because Apple event ${mapping.appleEventId} is missing`);
+                                } catch (err) {
+                                    await logSync('ERROR', `Failed to delete Google event ${gEvent.id}`, err);
                                 }
                             }
                         }
