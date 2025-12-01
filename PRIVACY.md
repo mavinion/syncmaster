@@ -3,7 +3,7 @@
 **Last Updated:** 2025-11-30
 
 ## 1. Introduction
-This application ("GoogleAppleSync") is a self-hosted synchronization tool designed to sync calendar events between Google Calendar and Apple Calendar. We value your privacy and are committed to protecting your personal data. This Privacy Policy explains how data is handled within the application.
+This application ("syncmaster") is a self-hosted synchronization tool designed to sync calendar events between Google Calendar and Apple Calendar. We value your privacy and are committed to protecting your personal data. This Privacy Policy explains how data is handled within the application.
 
 ## 2. Data We Collect and Store
 This application stores the following data in your local PostgreSQL database:
