@@ -19,7 +19,7 @@ export function SyncLogViewer({ userId }: { userId: string }) {
 
     const fetchLogs = async () => {
         try {
-            const res = await axios.get(`http://localhost:3000/sync/logs?userId=${userId}`);
+            const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/sync/logs?userId=${userId}`);
             setLogs(res.data);
         } catch (error) {
             console.error('Failed to fetch sync logs', error);

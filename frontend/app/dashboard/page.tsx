@@ -45,7 +45,7 @@ function DashboardContent() {
         if (currentToken) {
             try {
                 const payload = JSON.parse(atob(currentToken.split('.')[1]));
-                axios.get(`http://localhost:3000/auth/status?userId=${payload.id}`)
+                axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/status?userId=${payload.id}`)
                     .then(res => {
                         setAppleConnected(res.data.apple);
                     })
@@ -64,7 +64,7 @@ function DashboardContent() {
         try {
             const payload = JSON.parse(atob(token!.split('.')[1]));
 
-            await axios.post('http://localhost:3000/auth/apple-credentials', {
+            await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/apple-credentials`, {
                 userId: payload.id,
                 appleId,
                 appSpecificPassword: appPassword
@@ -246,7 +246,7 @@ function DashboardContent() {
                             onClick={async () => {
                                 try {
                                     const payload = JSON.parse(atob(token!.split('.')[1]));
-                                    await axios.post('http://localhost:3000/sync/trigger', { userId: payload.id });
+                                    await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/sync/trigger`, { userId: payload.id });
                                     alert('Sync started! Check backend logs for details.');
                                 } catch (err) {
                                     console.error(err);

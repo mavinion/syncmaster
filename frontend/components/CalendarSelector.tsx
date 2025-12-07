@@ -27,7 +27,7 @@ export function CalendarSelector({ userId }: { userId: string }) {
 
     const fetchCalendars = async () => {
         try {
-            const res = await axios.get(`http://localhost:3000/calendars/list?userId=${userId}`);
+            const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/calendars/list?userId=${userId}`);
             console.log('Fetched calendars:', res.data);
             setCalendars(res.data);
             setAutoSync(res.data.autoSyncEnabled);
@@ -67,7 +67,7 @@ export function CalendarSelector({ userId }: { userId: string }) {
         const newState = !autoSync;
         setAutoSync(newState);
         try {
-            await axios.post('http://localhost:3000/calendars/preferences/auto-sync', {
+            await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/calendars/preferences/auto-sync`, {
                 userId,
                 enabled: newState
             });
@@ -83,7 +83,7 @@ export function CalendarSelector({ userId }: { userId: string }) {
         try {
             // Save Google Calendars
             for (const cal of calendars.google) {
-                await axios.post('http://localhost:3000/calendars/preferences', {
+                await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/calendars/preferences`, {
                     userId,
                     googleCalendarId: cal.id,
                     displayName: cal.summary,
@@ -94,7 +94,7 @@ export function CalendarSelector({ userId }: { userId: string }) {
 
             // Save Apple Calendars
             for (const cal of calendars.apple) {
-                await axios.post('http://localhost:3000/calendars/preferences', {
+                await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/calendars/preferences`, {
                     userId,
                     appleCalendarUrl: cal.id,
                     displayName: cal.summary,
@@ -104,7 +104,7 @@ export function CalendarSelector({ userId }: { userId: string }) {
             }
 
             // Trigger Sync
-            await axios.post('http://localhost:3000/sync/trigger', { userId });
+            await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/sync/trigger`, { userId });
 
             alert('Preferences saved and sync started!');
         } catch (error) {
