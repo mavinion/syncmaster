@@ -16,10 +16,9 @@ class SyncmasterApi {
         }
     }
 
-    // TODO: Need a way to configure base URL based on platform/env
-    // Android Emulator: 10.0.2.2
-    // iOS Simulator: localhost
-    private val baseUrl = "http://10.0.2.2:3000" 
+    // Dynamic base URL from AppConfig
+    private val baseUrl: String
+        get() = org.syncmaster.app.config.AppConfig.baseUrl.value 
 
     // Placeholder for API methods
     // suspend fun getStatus(userId: String): SyncStatus { ... }

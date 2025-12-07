@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
+import java.util.Properties
+import java.io.File
+
 kotlin {
     applyDefaultHierarchyTemplate()
 
@@ -62,6 +65,41 @@ kotlin {
             }
         }
     }
+}
+
+// Generate BuildConstants.kt
+val generateBuildConstants by tasks.registering {
+    val outputDir = layout.buildDirectory.dir("generated/kotlin").get().asFile
+    val configFile = rootProject.file("mobile/local.properties")
+    val properties = Properties()
+    if (configFile.exists()) {
+        properties.load(configFile.inputStream())
+    }
+    
+    // Default to localhost emulator if not set
+    val apiUrl = properties.getProperty("API_URL") ?: "http://10.0.2.2:3000"
+
+    doLast {
+        val packageDir = File(outputDir, "org/syncmaster/app/config")
+        packageDir.mkdirs()
+        
+        val File = File(packageDir, "BuildConstants.kt")
+        File.writeText("""
+            package org.syncmaster.app.config
+            
+            internal object BuildConstants {
+                const val BUILD_API_URL = "$apiUrl"
+            }
+        """.trimIndent())
+    }
+}
+
+// Add generated source to commonMain
+kotlin.sourceSets.commonMain.get().kotlin.srcDir(layout.buildDirectory.dir("generated/kotlin"))
+
+// Make sure generation happens before compilation
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    dependsOn(generateBuildConstants)
 }
 
 android {
