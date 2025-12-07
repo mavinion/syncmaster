@@ -15,7 +15,7 @@ export default function LoginPage() {
                     <p className="text-zinc-500">Sync your Google & Apple Calendars seamlessly.</p>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Link href="http://localhost:3000/auth/google">
+                    <Link href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/google`}>
                         <Button className="w-full flex items-center justify-center gap-2 h-12 text-base" variant="outline">
                             <svg className="w-5 h-5" viewBox="0 0 24 24">
                                 <path
