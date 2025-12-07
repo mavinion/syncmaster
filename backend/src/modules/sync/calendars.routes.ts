@@ -113,15 +113,17 @@ router.post('/preferences', async (req, res) => {
         // We need to find the mapping based on EITHER googleId OR appleUrl
         // AND the user.
 
-        let mapping = await prisma.calendarMapping.findFirst({
-            where: {
-                userId,
-                OR: [
-                    { googleCalendarId: googleCalendarId || undefined },
-                    { appleCalendarUrl: appleCalendarUrl || undefined }
-                ]
-            }
-        });
+        // Fix P2002: Use strict lookup. OR query with undefined matches anything/unintended records.
+        let mapping = null;
+        if (appleCalendarUrl) {
+            mapping = await prisma.calendarMapping.findFirst({
+                where: { userId, appleCalendarUrl }
+            });
+        } else if (googleCalendarId) {
+            mapping = await prisma.calendarMapping.findFirst({
+                where: { userId, googleCalendarId }
+            });
+        }
 
         if (mapping) {
             // Update existing
