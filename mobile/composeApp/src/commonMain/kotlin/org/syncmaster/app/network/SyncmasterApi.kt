@@ -16,10 +16,18 @@ class SyncmasterApi {
         }
     }
 
-    // Dynamic base URL from AppConfig
-    private val baseUrl: String
-        get() = org.syncmaster.app.config.AppConfig.baseUrl.value 
 
-    // Placeholder for API methods
-    // suspend fun getStatus(userId: String): SyncStatus { ... }
+    private var authToken: String? = null
+
+    fun setAuthToken(token: String?) {
+        authToken = token
+    }
+
+    suspend fun login(provider: String, token: String): AuthResponse {
+        // Mock implementation for now
+        // val response = client.post("$baseUrl/auth/login") { ... }
+        return AuthResponse("mock-token-123", "user-123")
+    }
+
+    data class AuthResponse(val token: String, val userId: String)
 }
