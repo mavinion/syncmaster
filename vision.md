@@ -38,3 +38,9 @@ A cloud-based, "set it and forget it" service that performs **true bi-directiona
 *   **Database:** PostgreSQL for user data and sync mapping (storing IDs of linked events).
 *   **Queue System:** Redis/BullMQ for managing sync jobs and retries.
 *   **Frontend:** React/Next.js for the user dashboard.
+
+## 7. Mobile App Extension
+To provide a native experience on mobile devices, a companion app is planned:
+*   **Tech Stack:** Compose Multiplatform & Kotlin Multiplatform (KMP) for maximizing code sharing between Android and iOS.
+*   **Functionality:** Serves as an alternative frontend dashboard, allowing users to configure syncs, view logs, and manage subscriptions on the go.
+*   **Open Source & Security:** Like the core platform, the app will be open source and hosted on a public GitHub repository. To ensure security, no sensitive credentials or configuration keys will be committed to version control. Configuration will be read from local files (e.g., secure properties files) that are excluded from git.
