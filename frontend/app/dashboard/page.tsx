@@ -20,6 +20,7 @@ function DashboardContent() {
     const [appPassword, setAppPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [errorMessage, setErrorMessage] = useState('');
 
     const [appleConnected, setAppleConnected] = useState(false);
 
@@ -73,9 +74,10 @@ function DashboardContent() {
             setAppleConnected(true); // Update UI immediately
             setAppleId('');
             setAppPassword('');
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
             setStatus('error');
+            setErrorMessage(error.response?.data?.error || 'Failed to connect. Check credentials.');
         } finally {
             setLoading(false);
         }
@@ -218,7 +220,7 @@ function DashboardContent() {
                                         {status === 'error' && (
                                             <div className="flex items-center gap-2 text-red-600 text-sm">
                                                 <AlertCircle className="w-4 h-4" />
-                                                Failed to connect. Check credentials.
+                                                {errorMessage}
                                             </div>
                                         )}
 
