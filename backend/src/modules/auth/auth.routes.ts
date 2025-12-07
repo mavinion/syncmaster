@@ -133,4 +133,28 @@ router.get('/status', async (req, res) => {
     }
 });
 
+// Disconnect Account
+router.delete('/:provider', async (req, res) => {
+    const { provider } = req.params;
+    const { userId } = req.body; // Or from query if you prefer
+
+    if (!userId || !['google', 'apple'].includes(provider)) {
+        return res.status(400).json({ error: 'Invalid request' });
+    }
+
+    try {
+        await prisma.account.deleteMany({
+            where: {
+                userId,
+                provider
+            }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error disconnecting account:', error);
+        res.status(500).json({ error: 'Failed to disconnect account' });
+    }
+});
+
 export default router;

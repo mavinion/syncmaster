@@ -93,6 +93,28 @@ function DashboardContent() {
         router.push('/');
     };
 
+    const handleDisconnect = async (provider: 'apple' | 'google') => {
+        if (!confirm(`Are you sure you want to disconnect ${provider}?`)) return;
+
+        try {
+            const payload = JSON.parse(atob(token!.split('.')[1]));
+            await axios.delete(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/auth/${provider}`, {
+                data: { userId: payload.id }
+            });
+
+            if (provider === 'apple') {
+                setAppleConnected(false);
+                setConnectionLogs([]);
+                setStatus('idle');
+            }
+            // Add google logic here if needed
+
+        } catch (error) {
+            console.error('Failed to disconnect', error);
+            alert('Failed to disconnect');
+        }
+    };
+
     if (!token) return null;
 
     return (
@@ -188,10 +210,10 @@ function DashboardContent() {
                                         </p>
                                         <Button
                                             variant="outline"
-                                            onClick={() => setAppleConnected(false)}
-                                            className="mt-4 w-full text-zinc-600"
+                                            onClick={() => handleDisconnect('apple')}
+                                            className="mt-4 w-full text-red-600 hover:text-red-700 hover:bg-red-50"
                                         >
-                                            Reconnect / Change Account
+                                            Disconnect
                                         </Button>
                                     </>
                                 ) : (
