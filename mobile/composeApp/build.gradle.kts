@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.File
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -5,8 +8,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
-import java.util.Properties
-import java.io.File
+
 
 kotlin {
     applyDefaultHierarchyTemplate()
