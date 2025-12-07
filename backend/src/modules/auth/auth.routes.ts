@@ -3,6 +3,7 @@ import passport from 'passport';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { encrypt } from '../../utils/encryption';
+import { AppleCalendarService } from '../sync/apple.service';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -38,6 +39,15 @@ router.post('/apple-credentials', async (req, res) => {
     }
 
     try {
+        // Validate credentials first
+        const appleService = new AppleCalendarService(appleId, appSpecificPassword);
+        try {
+            await appleService.discoverCalendarUrl();
+        } catch (e) {
+            console.error('Apple validation failed:', e);
+            return res.status(401).json({ error: 'Invalid Apple ID or App-Specific Password' });
+        }
+
         const encryptedPassword = encrypt(appSpecificPassword);
 
         // Check if account exists
