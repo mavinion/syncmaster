@@ -43,12 +43,41 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
 
 # Server Port
+# Server Port
 PORT=3000
+
+# URL Configuration (Required for Production)
+# Defaults to localhost if not set
+FRONTEND_URL=http://localhost:3001
+API_URL=http://localhost:3000
 ```
 
 ### 2. Frontend Environment Variables
 Create a `.env` file in the `frontend/` directory if needed, or rely on defaults.
 For Docker, these are set in `docker-compose.yml`.
+
+For production, verify `NEXT_PUBLIC_API_URL` corresponds to your backend URL.
+
+### 3. Production Deployment (Remote Server)
+When deploying to a non-localhost environment (e.g., VPS, Cloud):
+
+1. **Set URL Variables**:
+   In your root `.env` file (used by docker-compose) or your specific service `.env` files, ensure you set:
+   ```env
+   # Backend .env
+   FRONTEND_URL=https://your-frontend-domain.com
+   API_URL=https://your-backend-domain.com
+   GOOGLE_CALLBACK_URL=https://your-backend-domain.com/auth/google/callback
+   ```
+
+   And in `docker-compose.yml` or frontend build args:
+   ```env
+   NEXT_PUBLIC_API_URL=https://your-backend-domain.com
+   ```
+
+2. **Google Cloud Console**:
+   - Update **Authorized JavaScript origins** to `https://your-frontend-domain.com`
+   - Update **Authorized redirect URIs** to `https://your-backend-domain.com/auth/google/callback`
 
 ---
 

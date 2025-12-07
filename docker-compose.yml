@@ -31,6 +31,9 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-syncmaster}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
+      - API_URL=${API_URL:-http://localhost:3000}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
     depends_on:
       - postgres
       - redis
@@ -40,8 +43,8 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
-      - BACKEND_URL=http://backend:3000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+      - BACKEND_URL=${BACKEND_URL:-http://backend:3000}
       - ADMIN_PASSWORD=Bk23071982$
     depends_on:
       - backend

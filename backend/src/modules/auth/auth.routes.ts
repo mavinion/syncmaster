@@ -24,7 +24,8 @@ router.get(
         });
 
         // Redirect to frontend with token
-        res.redirect(`http://localhost:3001/dashboard?token=${token}`);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+        res.redirect(`${frontendUrl}/dashboard?token=${token}`);
     }
 );
 
