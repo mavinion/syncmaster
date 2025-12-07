@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 export class AppleCalendarService {
   private authHeader: string;
   private baseUrl: string;
+  public logs: string[] = [];
 
   constructor(appleId: string, appSpecificPassword: string, serverUrl: string = 'https://caldav.icloud.com') {
     const credentials = Buffer.from(`${appleId}:${appSpecificPassword}`).toString('base64');
@@ -12,9 +13,28 @@ export class AppleCalendarService {
     this.baseUrl = serverUrl;
   }
 
+  private log(message: string, data?: any) {
+    const timestamp = new Date().toISOString();
+    let logEntry = `[${timestamp}] ${message}`;
+    if (data) {
+      if (typeof data === 'object') {
+        try {
+          logEntry += `\n${JSON.stringify(data, null, 2)}`;
+        } catch (e) {
+          logEntry += `\n[Circular or Non-Serializable Data]`;
+        }
+      } else {
+        logEntry += ` ${data}`;
+      }
+    }
+    this.logs.push(logEntry);
+    console.log(logEntry);
+  }
+
   async discoverCalendarUrl(): Promise<string> {
     try {
       // 1. Get Principal URL
+      this.log(`Discovering Principal URL from ${this.baseUrl}`);
       const principalResponse = await axios({
         method: 'PROPFIND',
         url: this.baseUrl,
@@ -42,8 +62,9 @@ export class AppleCalendarService {
           // xml2js sometimes puts text content in '_'
           principalUrl = href._;
         }
+        this.log(`Found Principal URL: ${principalUrl}`);
       } catch (e) {
-        console.log('Failed to parse principal, trying direct home set discovery on base');
+        this.log('Failed to parse principal, trying direct home set discovery on base');
       }
 
       // 2. Get Calendar Home Set
@@ -54,6 +75,7 @@ export class AppleCalendarService {
       }
 
       const homeSetUrl = principalUrl ? new URL(principalUrl, this.baseUrl).toString() : this.baseUrl;
+      this.log(`Discovering Calendar Home Set from ${homeSetUrl}`);
 
       const homeSetResponse = await axios({
         method: 'PROPFIND',
@@ -86,9 +108,12 @@ export class AppleCalendarService {
       return homeSetUrlResult;
 
     } catch (error: any) {
-      console.error('Error discovering Apple calendar:', error.message);
+      this.log('Error discovering Apple calendar:', error.message);
       if (error.response) {
-        console.error('Apple API Error Response:', error.response.status, error.response.data);
+        this.log('Apple API Error Response:', {
+          status: error.response.status,
+          data: error.response.data
+        });
       }
 
       // Smart Fallback: If we found a principal URL, try to guess the calendar home

@@ -21,6 +21,7 @@ function DashboardContent() {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
+    const [connectionLogs, setConnectionLogs] = useState<string[]>([]);
 
     const [appleConnected, setAppleConnected] = useState(false);
 
@@ -60,6 +61,7 @@ function DashboardContent() {
         e.preventDefault();
         setLoading(true);
         setStatus('idle');
+        setConnectionLogs([]);
 
         try {
             const payload = JSON.parse(atob(token!.split('.')[1]));
@@ -78,6 +80,9 @@ function DashboardContent() {
             console.error(error);
             setStatus('error');
             setErrorMessage(error.response?.data?.error || 'Failed to connect. Check credentials.');
+            if (error.response?.data?.logs) {
+                setConnectionLogs(error.response.data.logs);
+            }
         } finally {
             setLoading(false);
         }
@@ -218,9 +223,22 @@ function DashboardContent() {
                                         </div>
 
                                         {status === 'error' && (
-                                            <div className="flex items-center gap-2 text-red-600 text-sm">
-                                                <AlertCircle className="w-4 h-4" />
-                                                {errorMessage}
+                                            <div className="space-y-4">
+                                                <div className="flex items-center gap-2 text-red-600 text-sm">
+                                                    <AlertCircle className="w-4 h-4" />
+                                                    {errorMessage}
+                                                </div>
+
+                                                {connectionLogs.length > 0 && (
+                                                    <div className="p-3 bg-zinc-900 text-zinc-300 rounded-md text-xs font-mono overflow-x-auto max-h-64 overflow-y-auto">
+                                                        <p className="font-bold text-white mb-2 pb-2 border-b border-zinc-800">Connection Log:</p>
+                                                        <div className="space-y-1">
+                                                            {connectionLogs.map((log, i) => (
+                                                                <div key={i} className="whitespace-pre-wrap break-all">{log}</div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 

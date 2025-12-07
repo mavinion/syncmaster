@@ -43,9 +43,36 @@ router.post('/apple-credentials', async (req, res) => {
         const appleService = new AppleCalendarService(appleId, appSpecificPassword);
         try {
             await appleService.discoverCalendarUrl();
-        } catch (e) {
+
+            // Log success
+            await prisma.syncLog.create({
+                data: {
+                    userId,
+                    level: 'INFO',
+                    message: 'Apple Calendar Setup Success',
+                    details: JSON.stringify(appleService.logs),
+                    source: 'MANUAL'
+                }
+            });
+
+        } catch (e: any) {
             console.error('Apple validation failed:', e);
-            return res.status(401).json({ error: 'Invalid Apple ID or App-Specific Password' });
+
+            // Log failure
+            await prisma.syncLog.create({
+                data: {
+                    userId,
+                    level: 'ERROR',
+                    message: 'Apple Calendar Setup Failed',
+                    details: JSON.stringify(appleService.logs),
+                    source: 'MANUAL'
+                }
+            });
+
+            return res.status(401).json({
+                error: 'Invalid Apple ID or App-Specific Password',
+                logs: appleService.logs
+            });
         }
 
         const encryptedPassword = encrypt(appSpecificPassword);
