@@ -114,6 +114,11 @@ export class AppleCalendarService {
           status: error.response.status,
           data: error.response.data
         });
+
+        // CRITICAL: If unauthorized, we must throw to fail validation
+        if (error.response.status === 401) {
+          throw new Error('Unauthorized: Invalid credentials');
+        }
       }
 
       // Smart Fallback: If we found a principal URL, try to guess the calendar home
