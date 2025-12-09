@@ -12,6 +12,8 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.launch
 import org.syncmaster.app.data.AuthRepository
 
+import androidx.compose.ui.platform.LocalUriHandler
+
 // TODO: Inject AuthRepository properly
 class LoginScreen(private val authRepository: AuthRepository) : Screen {
     @Composable
@@ -19,6 +21,7 @@ class LoginScreen(private val authRepository: AuthRepository) : Screen {
         val navigator = LocalNavigator.currentOrThrow
         val scope = rememberCoroutineScope()
         var errorMessage by remember { mutableStateOf<String?>(null) }
+        val uriHandler = LocalUriHandler.current
 
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -30,14 +33,14 @@ class LoginScreen(private val authRepository: AuthRepository) : Screen {
 
             Button(
                 onClick = {
-                    scope.launch {
-                        try {
-                            // Mocking a successful login with Google
-                            authRepository.login("google", "mock-google-token")
-                            navigator.replaceAll(DashboardScreen())
-                        } catch (e: Exception) {
-                            errorMessage = "Login failed: ${e.message}"
-                        }
+                    // Open Browser for Google Sign-In
+                    // Note: In emulator use 10.0.2.2, on device use real IP
+                    // TODO: Make this URL configurable
+                    val authUrl = "http://10.0.2.2:3000/auth/google?platform=mobile"
+                    try {
+                        uriHandler.openUri(authUrl)
+                    } catch (e: Exception) {
+                        errorMessage = "Could not open browser: ${e.message}"
                     }
                 },
                 modifier = Modifier.fillMaxWidth()

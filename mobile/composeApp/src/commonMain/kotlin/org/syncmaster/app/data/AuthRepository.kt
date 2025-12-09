@@ -24,6 +24,13 @@ class AuthRepository(private val api: SyncmasterApi) {
         }
     }
 
+    suspend fun handleDeepLinkLogin(token: String, userId: String) {
+         // Deep link provides the ready-to-use token, so we just set the session
+         _userSession.value = UserSession(token = token, userId = userId)
+         // TODO: Save session
+         api.setAuthToken(token)
+    }
+
     fun logout() {
         _userSession.value = null
         // TODO: Clear saved session
