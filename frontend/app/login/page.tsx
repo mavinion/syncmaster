@@ -13,7 +13,7 @@ export default function LoginPage() {
                     <div className="mx-auto bg-blue-100 p-3 rounded-full w-fit">
                         <RefreshCw className="w-8 h-8 text-blue-600" />
                     </div>
-                    <CardTitle className="text-2xl font-bold text-zinc-900">SyncMaster</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-zinc-900">Calmesh</CardTitle>
                     <p className="text-zinc-500">Sync your Google & Apple Calendars seamlessly.</p>
                 </CardHeader>
                 <CardContent className="space-y-4">

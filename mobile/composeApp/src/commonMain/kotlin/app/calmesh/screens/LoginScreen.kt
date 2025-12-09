@@ -1,4 +1,4 @@
-package org.syncmaster.app.screens
+package app.calmesh.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -10,7 +10,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.launch
-import org.syncmaster.app.data.AuthRepository
+import app.calmesh.data.AuthRepository
 
 import androidx.compose.ui.platform.LocalUriHandler
 
@@ -28,7 +28,7 @@ class LoginScreen(private val authRepository: AuthRepository) : Screen {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text("Welcome to SyncMaster", style = MaterialTheme.typography.headlineMedium)
+            Text("Welcome to Calmesh", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(

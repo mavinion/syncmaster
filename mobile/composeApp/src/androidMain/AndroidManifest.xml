@@ -3,7 +3,7 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Syncmaster"
+        android:label="Calmesh"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name=".MainActivity"
@@ -17,7 +17,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="org.syncmaster.app" />
+                <data android:scheme="app.calmesh" />
             </intent-filter>
         </activity>
     </application>

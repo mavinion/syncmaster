@@ -1,4 +1,4 @@
-package org.syncmaster.app.screens
+package app.calmesh.screens
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -23,7 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import org.syncmaster.app.config.AppConfig
+import app.calmesh.config.AppConfig
 
 class SettingsScreen : Screen {
     @Composable

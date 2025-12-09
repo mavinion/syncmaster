@@ -82,12 +82,12 @@ val generateBuildConstants by tasks.registering {
     val apiUrl = properties.getProperty("API_URL") ?: "http://10.0.2.2:3000"
 
     doLast {
-        val packageDir = File(outputDir, "org/syncmaster/app/config")
+        val packageDir = File(outputDir, "app/calmesh/config")
         packageDir.mkdirs()
         
         val File = File(packageDir, "BuildConstants.kt")
         File.writeText("""
-            package org.syncmaster.app.config
+            package app.calmesh.config
             
             internal object BuildConstants {
                 const val BUILD_API_URL = "$apiUrl"
@@ -105,7 +105,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 }
 
 android {
-    namespace = "org.syncmaster.app"
+    namespace = "app.calmesh"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
@@ -113,7 +113,7 @@ android {
     sourceSets["main"].resources.srcDirs("src/commonMain/resources")
 
     defaultConfig {
-        applicationId = "org.syncmaster.app"
+        applicationId = "app.calmesh"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1

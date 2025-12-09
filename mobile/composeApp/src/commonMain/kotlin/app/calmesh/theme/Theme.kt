@@ -1,4 +1,4 @@
-package org.syncmaster.app.theme
+package app.calmesh.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme

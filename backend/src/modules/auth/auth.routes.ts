@@ -42,7 +42,7 @@ router.get(
         }
 
         if (platform === 'mobile') {
-            return res.redirect(`org.syncmaster.app://login-callback?token=${token}&userId=${user.id}`);
+            return res.redirect(`app.calmesh://login-callback?token=${token}&userId=${user.id}`);
         }
 
         // Redirect to frontend with token

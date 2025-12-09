@@ -126,7 +126,7 @@ function DashboardContent() {
                             <div className="bg-blue-600 p-2 rounded-lg">
                                 <RefreshCw className="w-6 h-6 text-white" />
                             </div>
-                            <h1 className="text-2xl font-bold text-zinc-900">SyncMaster Dashboard</h1>
+                            <h1 className="text-2xl font-bold text-zinc-900">Calmesh Dashboard</h1>
                         </div>
                         <Button variant="ghost" onClick={handleLogout} className="gap-2">
                             <LogOut className="w-4 h-4" />
@@ -307,7 +307,7 @@ function DashboardContent() {
                     <div className="col-span-1 md:col-span-2 space-y-4">
                         <div className="flex items-center gap-2 text-white">
                             <RefreshCw className="w-6 h-6" />
-                            <span className="font-bold text-xl">SyncMaster</span>
+                            <span className="font-bold text-xl">Calmesh</span>
                         </div>
                         <p className="text-sm max-w-xs">
                             The best way to sync Google and Apple calendars. Built for privacy, speed, and reliability.
@@ -318,7 +318,7 @@ function DashboardContent() {
                         <ul className="space-y-2 text-sm">
                             <li><Link href="/features" className="hover:text-white">Features</Link></li>
                             <li><Link href="/login" className="hover:text-white">Login</Link></li>
-                            <li><Link href="https://github.com/mavinion/syncmaster" className="hover:text-white">GitHub</Link></li>
+                            <li><Link href="https://github.com/mavinion/calmesh" className="hover:text-white">GitHub</Link></li>
                         </ul>
                     </div>
                     <div>
@@ -331,7 +331,7 @@ function DashboardContent() {
                     </div>
                 </div>
                 <div className="max-w-6xl mx-auto pt-8 border-t border-zinc-800 text-sm text-center md:text-left">
-                    © {new Date().getFullYear()} SyncMaster. All rights reserved.
+                    © {new Date().getFullYear()} Calmesh. All rights reserved.
                 </div>
             </footer>
         </div>

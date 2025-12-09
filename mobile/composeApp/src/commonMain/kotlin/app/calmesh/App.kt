@@ -1,17 +1,17 @@
-package org.syncmaster.app
+package app.calmesh
 
 import androidx.compose.runtime.*
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.SlideTransition
-import org.syncmaster.app.data.AuthRepository
-import org.syncmaster.app.network.SyncmasterApi
-import org.syncmaster.app.screens.DashboardScreen
-import org.syncmaster.app.screens.LoginScreen
-import org.syncmaster.app.theme.AppTheme
+import app.calmesh.data.AuthRepository
+import app.calmesh.network.CalmeshApi
+import app.calmesh.screens.DashboardScreen
+import app.calmesh.screens.LoginScreen
+import app.calmesh.theme.AppTheme
 
 // Simple helper to provide dependencies
 object AppContainer {
-    val api = SyncmasterApi()
+    val api = CalmeshApi()
     val authRepository = AuthRepository(api)
 }
 

@@ -1,4 +1,4 @@
-package org.syncmaster.app
+package app.calmesh
 
 import androidx.compose.ui.window.ComposeUIViewController
 

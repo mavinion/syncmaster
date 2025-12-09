@@ -1,4 +1,4 @@
-package org.syncmaster.app.theme
+package app.calmesh.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

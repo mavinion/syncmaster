@@ -1,4 +1,4 @@
-package org.syncmaster.app.config
+package app.calmesh.config
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

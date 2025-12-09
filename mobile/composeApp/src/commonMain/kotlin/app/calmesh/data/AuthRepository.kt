@@ -1,11 +1,11 @@
-package org.syncmaster.app.data
+package app.calmesh.data
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.syncmaster.app.network.SyncmasterApi
+import app.calmesh.network.CalmeshApi
 
-class AuthRepository(private val api: SyncmasterApi) {
+class AuthRepository(private val api: CalmeshApi) {
     private val _userSession = MutableStateFlow<UserSession?>(null)
     val userSession: StateFlow<UserSession?> = _userSession.asStateFlow()
 

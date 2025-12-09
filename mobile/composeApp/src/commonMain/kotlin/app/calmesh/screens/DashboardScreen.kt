@@ -1,4 +1,4 @@
-package org.syncmaster.app.screens
+package app.calmesh.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -29,7 +29,7 @@ class DashboardScreen : Screen {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Syncmaster") },
+                    title = { Text("Calmesh") },
                     actions = {
                         IconButton(onClick = { navigator.push(SettingsScreen()) }) {
                             Icon(Icons.Default.Settings, contentDescription = "Settings")

@@ -1,4 +1,4 @@
-package org.syncmaster.app.data
+package app.calmesh.data
 
 import kotlinx.serialization.Serializable
 

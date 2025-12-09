@@ -1,4 +1,4 @@
-rootProject.name = "SyncmasterMobile"
+rootProject.name = "CalmeshMobile"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {

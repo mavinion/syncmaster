@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-syncmaster}
+      POSTGRES_DB: ${POSTGRES_DB:-calmesh}
     ports:
       - "5432:5432"
     volumes:
@@ -28,7 +28,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-syncmaster}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-calmesh}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}

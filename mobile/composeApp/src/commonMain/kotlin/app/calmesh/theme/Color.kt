@@ -1,4 +1,4 @@
-package org.syncmaster.app.theme
+package app.calmesh.theme
 
 import androidx.compose.ui.graphics.Color
 

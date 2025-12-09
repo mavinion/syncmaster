@@ -1,4 +1,4 @@
-package org.syncmaster.app.screens
+package app.calmesh.screens
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer

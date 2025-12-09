@@ -37,7 +37,7 @@ import adminRoutes from './routes/admin.routes';
 app.use('/admin', adminRoutes);
 
 app.get('/', (req, res) => {
-    res.send('SyncMaster API is running');
+    res.send('Calmesh API is running');
 });
 
 app.listen(port, () => {
