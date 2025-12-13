@@ -84,4 +84,65 @@ router.get('/tables/:tableName', async (req, res) => {
     }
 });
 
+// Get System Stats
+router.get('/stats', async (req, res) => {
+    try {
+        const [totalUsers, totalLogs, errorLogs] = await Promise.all([
+            prisma.user.count(),
+            prisma.syncLog.count(),
+            prisma.syncLog.count({ where: { level: 'ERROR' } })
+        ]);
+
+        res.json({
+            totalUsers,
+            totalLogs,
+            errorCount: errorLogs
+        });
+    } catch (error) {
+        console.error('Error fetching stats:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get Activity Stats (Last 7 days)
+router.get('/activity', async (req, res) => {
+    try {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 6); // Last 7 days including today
+        startDate.setHours(0, 0, 0, 0);
+
+        // Group by day using raw query for date trunc
+        const result = await prisma.$queryRaw`
+            SELECT 
+                DATE(created_at) as date,
+                COUNT(*)::int as count
+            FROM "SyncLog"
+            WHERE created_at >= ${startDate}
+            GROUP BY DATE(created_at)
+            ORDER BY DATE(created_at) ASC
+        `;
+
+        // Fill in missing days
+        const activity = [];
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            // @ts-ignore
+            const dayData = result.find((r: any) => {
+                const rDate = new Date(r.date).toISOString().split('T')[0];
+                return rDate === dateStr;
+            });
+            activity.push({
+                date: dateStr,
+                count: dayData ? dayData.count : 0
+            });
+        }
+
+        res.json(activity);
+    } catch (error) {
+        console.error('Error fetching activity:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 export default router;
