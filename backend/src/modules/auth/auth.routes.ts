@@ -78,17 +78,24 @@ router.post('/apple-credentials', async (req, res) => {
 
         } catch (e: any) {
             console.error('Apple validation failed:', e);
+            console.error('--- Apple Service Logs (Start) ---');
+            appleService.logs.forEach(log => console.error(log));
+            console.error('--- Apple Service Logs (End) ---');
 
-            // Log failure
-            await prisma.syncLog.create({
-                data: {
-                    userId,
-                    level: 'ERROR',
-                    message: 'Apple Calendar Setup Failed',
-                    details: JSON.stringify(appleService.logs),
-                    source: 'MANUAL'
-                }
-            });
+            // Log failure to DB, but don't let it crash the request
+            try {
+                await prisma.syncLog.create({
+                    data: {
+                        userId,
+                        level: 'ERROR',
+                        message: 'Apple Calendar Setup Failed',
+                        details: JSON.stringify(appleService.logs),
+                        source: 'MANUAL'
+                    }
+                });
+            } catch (dbError) {
+                console.error('Failed to write error log to database:', dbError);
+            }
 
             return res.status(401).json({
                 error: 'Invalid Apple ID or App-Specific Password',
