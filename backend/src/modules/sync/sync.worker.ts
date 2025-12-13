@@ -174,11 +174,41 @@ export const setupSyncWorker = () => {
                         const existing = calendars.find((c: any) => c.summary === mapping.displayName);
                         if (existing && existing.id) {
                             googleId = existing.id;
+
+                            // Check for conflict before updating
+                            const existingMapping = await prisma.calendarMapping.findFirst({
+                                where: {
+                                    userId,
+                                    googleCalendarId: googleId,
+                                    id: { not: mapping.id }
+                                }
+                            });
+
+                            if (existingMapping) {
+                                await logSync('WARN', `Duplicate Google calendar detected. Calendar '${mapping.displayName}' resolves to Google ID ${googleId}, which is already mapped to '${existingMapping.displayName}'. Skipping.`);
+                                continue;
+                            }
+
                             await prisma.calendarMapping.update({ where: { id: mapping.id }, data: { googleCalendarId: googleId } });
                         } else {
                             const newCal = await googleService.createCalendar(mapping.displayName);
                             if (newCal.id) {
                                 googleId = newCal.id;
+
+                                // Check for conflict before updating
+                                const existingMapping = await prisma.calendarMapping.findFirst({
+                                    where: {
+                                        userId,
+                                        googleCalendarId: googleId,
+                                        id: { not: mapping.id }
+                                    }
+                                });
+
+                                if (existingMapping) {
+                                    await logSync('WARN', `Duplicate Google calendar detected. Calendar '${mapping.displayName}' resolves to Google ID ${googleId}, which is already mapped to '${existingMapping.displayName}'. Skipping.`);
+                                    continue;
+                                }
+
                                 await prisma.calendarMapping.update({ where: { id: mapping.id }, data: { googleCalendarId: googleId } });
                             }
                         }
@@ -194,10 +224,40 @@ export const setupSyncWorker = () => {
                         const existing = calendars.find((c: any) => c.summary === mapping.displayName);
                         if (existing) {
                             appleUrl = existing.id;
+
+                            // Check for conflict before updating
+                            const existingMapping = await prisma.calendarMapping.findFirst({
+                                where: {
+                                    userId,
+                                    appleCalendarUrl: appleUrl,
+                                    id: { not: mapping.id }
+                                }
+                            });
+
+                            if (existingMapping) {
+                                await logSync('WARN', `Duplicate Apple calendar detected. Calendar '${mapping.displayName}' resolves to Apple ID ${appleUrl}, which is already mapped to '${existingMapping.displayName}'. Skipping.`);
+                                continue;
+                            }
+
                             await prisma.calendarMapping.update({ where: { id: mapping.id }, data: { appleCalendarUrl: appleUrl } });
                         } else {
                             const newCal = await appleService.createCalendar(mapping.displayName);
                             appleUrl = newCal.id;
+
+                            // Check for conflict before updating
+                            const existingMapping = await prisma.calendarMapping.findFirst({
+                                where: {
+                                    userId,
+                                    appleCalendarUrl: appleUrl,
+                                    id: { not: mapping.id }
+                                }
+                            });
+
+                            if (existingMapping) {
+                                await logSync('WARN', `Duplicate Apple calendar detected. Calendar '${mapping.displayName}' resolves to Apple ID ${appleUrl}, which is already mapped to '${existingMapping.displayName}'. Skipping.`);
+                                continue;
+                            }
+
                             await prisma.calendarMapping.update({ where: { id: mapping.id }, data: { appleCalendarUrl: appleUrl } });
                         }
                     } catch (e) {
