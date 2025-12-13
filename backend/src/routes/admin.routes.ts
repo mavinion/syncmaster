@@ -142,12 +142,12 @@ router.get('/activity', async (req, res) => {
         // Group by day using raw query for date trunc
         const result: any[] = await prisma.$queryRaw`
             SELECT
-                DATE(created_at) as date,
+                DATE("createdAt") as date,
                 COUNT(*)::int as count
             FROM "SyncLog"
-            WHERE created_at >= ${startDate}
-            GROUP BY DATE(created_at)
-            ORDER BY DATE(created_at) ASC
+            WHERE "createdAt" >= ${startDate}
+            GROUP BY DATE("createdAt")
+            ORDER BY DATE("createdAt") ASC
         `;
 
         // Fill in missing days
