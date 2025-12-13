@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(
+async function adminProxy(
     request: NextRequest,
     { params }: { params: Promise<{ path: string[] }> }
 ) {
@@ -12,12 +12,16 @@ export async function GET(
     const url = `${backendUrl}/admin/${pathString}${searchParams ? `?${searchParams}` : ''}`;
 
     try {
+        const body = request.method !== 'GET' ? await request.text() : undefined;
+
         const res = await fetch(url, {
+            method: request.method,
             headers: {
                 // Inject the Basic Auth header for the backend
                 'Authorization': `Basic ${btoa(`admin:${process.env.ADMIN_PASSWORD}`)}`,
                 'Content-Type': 'application/json',
             },
+            body,
         });
 
         if (!res.ok) {
@@ -31,3 +35,5 @@ export async function GET(
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+export { adminProxy as GET, adminProxy as POST, adminProxy as DELETE, adminProxy as PUT };
