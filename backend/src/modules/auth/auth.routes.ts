@@ -9,11 +9,17 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Google OAuth
-router.get('/google', passport.authenticate('google', {
-    scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar'],
-    accessType: 'offline',
-    prompt: 'consent'
-}));
+router.get('/google', (req, res, next) => {
+    const { platform } = req.query;
+    const state = platform ? JSON.stringify({ platform }) : undefined;
+
+    passport.authenticate('google', {
+        scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar'],
+        accessType: 'offline',
+        prompt: 'consent',
+        state
+    })(req, res, next);
+});
 
 router.get(
     '/google/callback',
@@ -23,6 +29,21 @@ router.get(
         const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || 'secret', {
             expiresIn: '7d',
         });
+
+        // Check state for mobile platform
+        let platform = null;
+        if (req.query.state) {
+            try {
+                const state = JSON.parse(req.query.state as string);
+                platform = state.platform;
+            } catch (e) {
+                // Ignore parse errors
+            }
+        }
+
+        if (platform === 'mobile') {
+            return res.redirect(`app.calmesh://login-callback?token=${token}&userId=${user.id}`);
+        }
 
         // Redirect to frontend with token
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';

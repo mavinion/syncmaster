@@ -14,7 +14,7 @@ export default function FeaturesPage() {
                             <div className="bg-blue-600 p-1.5 rounded-lg">
                                 <RefreshCw className="w-5 h-5 text-white" />
                             </div>
-                            <span className="font-bold text-xl text-zinc-900">SyncMaster</span>
+                            <span className="font-bold text-xl text-zinc-900">Calmesh</span>
                         </Link>
                     </div>
                     <div className="flex items-center gap-4">
@@ -37,7 +37,7 @@ export default function FeaturesPage() {
                         </Link>
                         <h1 className="text-4xl font-extrabold text-zinc-900">Detailed Features</h1>
                         <p className="text-xl text-zinc-500">
-                            Explore the comprehensive capabilities of SyncMaster.
+                            Explore the comprehensive capabilities of Calmesh.
                         </p>
                     </div>
 
@@ -203,7 +203,7 @@ export default function FeaturesPage() {
                     <div className="col-span-1 md:col-span-2 space-y-4">
                         <div className="flex items-center gap-2 text-white">
                             <RefreshCw className="w-6 h-6" />
-                            <span className="font-bold text-xl">SyncMaster</span>
+                            <span className="font-bold text-xl">Calmesh</span>
                         </div>
                         <p className="text-sm max-w-xs">
                             The best way to sync Google and Apple calendars. Built for privacy, speed, and reliability.
@@ -227,7 +227,7 @@ export default function FeaturesPage() {
                     </div>
                 </div>
                 <div className="max-w-6xl mx-auto pt-8 border-t border-zinc-800 text-sm text-center md:text-left">
-                    © {new Date().getFullYear()} SyncMaster. All rights reserved.
+                    © {new Date().getFullYear()} Calmesh. All rights reserved.
                 </div>
             </footer>
         </div>

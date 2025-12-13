@@ -12,7 +12,7 @@ export default function PrivacyPage() {
                             <div className="bg-blue-600 p-1.5 rounded-lg">
                                 <RefreshCw className="w-5 h-5 text-white" />
                             </div>
-                            <span className="font-bold text-xl text-zinc-900">SyncMaster</span>
+                            <span className="font-bold text-xl text-zinc-900">Calmesh</span>
                         </Link>
                     </div>
                 </div>
@@ -30,7 +30,7 @@ export default function PrivacyPage() {
                         <p className="text-zinc-600 font-medium">Last Updated: 2025-11-30</p>
 
                         <h2>1. Introduction</h2>
-                        <p>This application ("SyncMaster") is a self-hosted synchronization tool designed to sync calendar events between Google Calendar and Apple Calendar. We value your privacy and are committed to protecting your personal data. This Privacy Policy explains how data is handled within the application.</p>
+                        <p>This application ("Calmesh") is a self-hosted synchronization tool designed to sync calendar events between Google Calendar and Apple Calendar. We value your privacy and are committed to protecting your personal data. This Privacy Policy explains how data is handled within the application.</p>
 
                         <h2>2. Data We Collect and Store</h2>
                         <p>This application stores the following data in your local PostgreSQL database:</p>

@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide provides detailed instructions for setting up SyncMaster using either Docker (recommended) or a manual installation.
+This guide provides detailed instructions for setting up Calmesh using either Docker (recommended) or a manual installation.
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ Add the following content to `backend/.env`:
 
 ```env
 # Database (Default for Docker)
-DATABASE_URL="postgresql://postgres:postgres@postgres:5432/syncmaster"
+DATABASE_URL="postgresql://postgres:postgres@postgres:5432/calmesh"
 REDIS_HOST=redis
 REDIS_PORT=6379
 
@@ -88,7 +88,7 @@ This method runs the Database, Redis, Backend, and Frontend in isolated containe
 1.  **Clone the repository:**
     ```bash
     git clone <repository-url>
-    cd GoogleAppleSync
+    cd Calmesh
     ```
 
 2.  **Start the application:**
@@ -122,13 +122,13 @@ brew services start redis
 ### 2. Setup Database
 Create the database:
 ```bash
-createdb syncmaster
+createdb calmesh
 ```
 
 ### 3. Configure Backend
 Update `backend/.env` to point to localhost:
 ```env
-DATABASE_URL="postgresql://$(whoami):@localhost:5432/syncmaster"
+DATABASE_URL="postgresql://$(whoami):@localhost:5432/calmesh"
 REDIS_HOST=localhost
 REDIS_PORT=6379
 ```
@@ -167,8 +167,8 @@ The frontend will start on `http://localhost:3001` (or 3000 if backend is not ru
 ### Apple Calendar (iCloud)
 1.  Go to [appleid.apple.com](https://appleid.apple.com/).
 2.  Sign in and go to **App-Specific Passwords**.
-3.  Generate a new password (e.g., "syncmaster").
-4.  You will use your **Apple ID email** and this **App-Specific Password** when adding an account in the SyncMaster UI.
+3.  Generate a new password (e.g., "calmesh").
+4.  You will use your **Apple ID email** and this **App-Specific Password** when adding an account in the Calmesh UI.
 
 ---
 

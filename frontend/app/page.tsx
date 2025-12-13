@@ -13,7 +13,7 @@ export default function LandingPage() {
             <div className="bg-blue-600 p-1.5 rounded-lg">
               <RefreshCw className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-xl text-zinc-900">SyncMaster</span>
+            <span className="font-bold text-xl text-zinc-900">Calmesh</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login">
@@ -47,7 +47,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-xl text-zinc-500 max-w-2xl mx-auto leading-relaxed">
-            Stop juggling multiple calendars. SyncMaster keeps your schedule perfectly synchronized across all your devices and accounts in real-time.
+            Stop juggling multiple calendars. Calmesh keeps your schedule perfectly synchronized across all your devices and accounts in real-time.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -185,7 +185,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center space-y-8">
           <h2 className="text-3xl md:text-4xl font-bold">Ready to synchronize your life?</h2>
           <p className="text-blue-100 text-lg max-w-2xl mx-auto">
-            Join thousands of users who trust SyncMaster to keep their schedules in check. Open source, secure, and free to self-host.
+            Join thousands of users who trust Calmesh to keep their schedules in check. Open source, secure, and free to self-host.
           </p>
           <Link href="/login">
             <Button size="lg" className="h-14 px-8 text-lg bg-white text-blue-600 hover:bg-blue-50 rounded-full font-bold shadow-lg">
@@ -201,7 +201,7 @@ export default function LandingPage() {
           <div className="col-span-1 md:col-span-2 space-y-4">
             <div className="flex items-center gap-2 text-white">
               <RefreshCw className="w-6 h-6" />
-              <span className="font-bold text-xl">SyncMaster</span>
+              <span className="font-bold text-xl">Calmesh</span>
             </div>
             <p className="text-sm max-w-xs">
               The best way to sync Google and Apple calendars. Built for privacy, speed, and reliability.

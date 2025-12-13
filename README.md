@@ -1,6 +1,6 @@
-# SyncMaster
+# Calmesh
 
-SyncMaster is a private SaaS for bi-directional synchronization between Google Calendar and Apple Calendar (iCloud).
+Calmesh is a private SaaS for bi-directional synchronization between Google Calendar and Apple Calendar (iCloud).
 
 ## Project Structure
 
